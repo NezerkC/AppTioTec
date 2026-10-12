@@ -1,0 +1,52 @@
+name: "📌 Nueva Tarea TíoTec (GitHub Projects)"
+description: "Crear una tarea técnica para el desarrollo de AppTioTec en la Unidad 2"
+title: "[Tarea · Guía X] "
+labels: ["estado: por-hacer"]
+body:
+  - type: dropdown
+    id: guia
+    attributes:
+      label: "Guía / Actividad Asociada"
+      description: "Selecciona a qué guía del AVA corresponde esta tarea"
+      options:
+        - "Guía 7 · Configuración inicial MVVM y Git"
+        - "Guía 8 y 9 · Pantalla base Compose y Adaptabilidad M3"
+        - "Guía 10 · Navegación estructurada (NavHost / Scaffold)"
+        - "Guía 11 · Formularios validados y StateFlow"
+        - "Guía 12 · Animaciones declarativas y DataStore"
+        - "Guía 13 · Recurso Nativo Cámara y Permisos"
+        - "Actividad 2.5 · Persistencia con Room Database (SQLite)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: capa
+    attributes:
+      label: "Capa Arquitectónica MVVM"
+      options:
+        - "model/ (Modelos y Data Classes)"
+        - "repository/ (Origen de Datos / Room / DataStore)"
+        - "viewmodel/ (StateFlow y Reglas de Negocio)"
+        - "ui/ (Pantallas Jetpack Compose y Material 3)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: "Objetivo de la Tarea"
+      description: "Describe qué funcionalidad de TíoTec se implementará"
+      placeholder: "Ej: Implementar formulario de registro de dispositivos con validación de nombre..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: "Criterios de Aceptación (Checklist)"
+      value: |
+        - [ ] Cumple con la arquitectura MVVM (`ui` observa a `viewmodel`)
+        - [ ] Compila sin errores en `./gradlew compileDebugKotlin`
+        - [ ] Incluye validaciones según las Reglas de Negocio (`RN-01` a `RN-03`)
+    validations:
+      required: true

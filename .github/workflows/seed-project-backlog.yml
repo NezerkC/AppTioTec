@@ -1,0 +1,158 @@
+name: "📋 Sincronizar Backlog TíoTec (GitHub Projects & Issues)"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/seed-project-backlog.yml'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  seed-backlog:
+    name: Generar Etiquetas y Tareas de Unidad 2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Crear Etiquetas y Poblar Issues del Proyecto TíoTec
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // 1. Definir etiquetas oficiales para el tablero GitHub Projects
+            const labels = [
+              { name: 'estado: finalizado', color: '0E8A16', description: 'Tarea completada y verificada en main' },
+              { name: 'estado: en-curso', color: 'FBCA04', description: 'Tarea actualmente en desarrollo por el equipo' },
+              { name: 'estado: por-hacer', color: '1D76DB', description: 'Tarea planificada pendiente de inicio' },
+              { name: 'prioridad: alta', color: 'D93F0B', description: 'Requisito crítico para evaluación Parcial 2 y 3' },
+              { name: 'prioridad: media', color: '0075CA', description: 'Funcionalidad complementaria del MVP' },
+              { name: 'capa: mvvm-core', color: '5319E7', description: 'Modelos, Repositorio y ViewModel con StateFlow' },
+              { name: 'capa: ui-compose', color: '006B75', description: 'Pantallas Jetpack Compose y Material Design 3' },
+              { name: 'capa: persistencia', color: 'C2E0C6', description: 'Room Database (SQLite) y Preferences DataStore' },
+              { name: 'capa: nativo', color: 'F9D0C4', description: 'Cámara, Permisos en Runtime y Notificaciones' }
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+                console.log(`Etiqueta creada: ${label.name}`);
+              } catch (e) {
+                // Si ya existe, la actualizamos
+                await github.rest.issues.updateLabel({
+                  owner,
+                  repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                }).catch(() => {});
+              }
+            }
+
+            // 2. Obtener todos los issues existentes (abiertos y cerrados) para evitar duplicados
+            const existingIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'all',
+              per_page: 100
+            });
+            const existingTitles = new Set(existingIssues.map(i => i.title.trim()));
+
+            // 3. Definir el Backlog completo de la Unidad 2 (Guías 7 a 13 + Actividad 2.5)
+            const tasks = [
+              {
+                title: '[Tarea 01 · Guía 7] Levantamiento de Requerimientos y Reglas de Negocio (Caso TíoTec)',
+                labels: ['estado: finalizado', 'prioridad: alta', 'capa: mvvm-core'],
+                completed: true,
+                body: `### Contexto\nAnálisis del caso oficial **TíoTec Preventivo** (MCmovil SpA) para la sección 005V.\n\n### Entregables Completados\n- [x] Definición de alcance del MVP y actores del sistema.\n- [x] Especificación de Requerimientos Funcionales (\`RF-01\` a \`RF-06\`).\n- [x] Definición de Reglas de Negocio (\`RN-01\` Semáforo de Riesgo, \`RN-02\` Plan Automático, \`RN-03\` Validaciones).\n- [x] Documentación en \`docs/01-Caso-Oficial-TioTec.md\` y \`docs/02-Requerimientos-y-Reglas-Negocio.md\`.`
+              },
+              {
+                title: '[Tarea 02 · Guía 7] Configuración Inicial del Proyecto Android con Jetpack Compose y MVVM',
+                labels: ['estado: finalizado', 'prioridad: alta', 'capa: mvvm-core'],
+                completed: true,
+                body: `### Contexto\nCreación de la estructura base del proyecto \`AppTioTec\` bajo el namespace \`cl.duoc.tiotec\`.\n\n### Entregables Completados\n- [x] Configuración de Gradle 9.1, Kotlin 2.2, Compose BOM y Material 3.\n- [x] Creación de paquetes \`model/\`, \`repository/\`, \`viewmodel/\`, \`ui/\` y \`theme/\`.\n- [x] Primer commit oficial: \`Inicio de proyecto + estructura base MVVM\`.`
+              },
+              {
+                title: '[Tarea 03 · Guía 7] Implementación de Modelos de Dominio, Repositorio y TioTecViewModel',
+                labels: ['estado: finalizado', 'prioridad: alta', 'capa: mvvm-core'],
+                completed: true,
+                body: `### Contexto\nDesarrollo de las entidades inmutables y el flujo reactivo de estado.\n\n### Entregables Completados\n- [x] Modelos: \`Usuario.kt\`, \`Dispositivo.kt\`, \`NivelRiesgo.kt\`, \`EvaluacionSeguridad.kt\`, \`AccionChecklist.kt\`.\n- [x] Origen de datos inicial en \`TioTecRepository.kt\` con los 4 pilares de seguridad.\n- [x] \`TioTecViewModel.kt\` con \`StateFlow<TioTecUiState>\`, cálculo de riesgo (\`RN-01\`) y generación de tareas (\`RN-02\`).`
+              },
+              {
+                title: '[Tarea 04 · Guía 8 y 9] Construcción Visual del Dashboard Principal y Adaptabilidad Material 3',
+                labels: ['estado: en-curso', 'prioridad: alta', 'capa: ui-compose'],
+                completed: false,
+                body: `### Objetivo (Guías 8 y 9)\nConstruir la pantalla de inicio (*Dashboard Preventivo*) utilizando componentes declarativos de Jetpack Compose y principios de Material Design 3.\n\n### Criterios de Aceptación\n- [ ] Mostrar tarjeta resumen con el último **Nivel de Riesgo** (*Bajo, Medio o Alto*) y colores semánticos.\n- [ ] Mostrar resumen rápido de dispositivos registrados y acciones pendientes.\n- [ ] Botones de acceso rápido para iniciar nueva evaluación y ver el checklist.\n- [ ] Garantizar diseño jerárquico y adaptable a distintos tamaños de pantalla.`
+              },
+              {
+                title: '[Tarea 05 · Guía 10] Flujo de Navegación Estructurada (Scaffold, TopAppBar y NavigationBar)',
+                labels: ['estado: en-curso', 'prioridad: alta', 'capa: ui-compose'],
+                completed: false,
+                body: `### Objetivo (Guía 10)\nImplementar la estructura de navegación principal de **AppTioTec** conectando todas las pantallas del MVP.\n\n### Criterios de Aceptación\n- [ ] Implementar \`Scaffold\` con \`TopAppBar\` institucional de TíoTec y \`NavigationBar\` inferior.\n- [ ] Configurar rutas hacia: **1. Inicio**, **2. Evaluación Preventiva**, **3. Checklist de Acciones** y **4. Perfil / Dispositivos**.\n- [ ] Mantener la instancia compartida de \`TioTecViewModel\` entre pantallas.`
+              },
+              {
+                title: '[Tarea 06 · Guía 11] Pantalla de Perfil Ficticio e Inventario de Dispositivos con Validación Reactiva',
+                labels: ['estado: por-hacer', 'prioridad: alta', 'capa: ui-compose'],
+                completed: false,
+                body: `### Objetivo (Guía 11 - RF-01 y RF-02)\nCrear los formularios interactivos para editar el perfil ficticio y agregar dispositivos de prueba.\n\n### Criterios de Aceptación\n- [ ] Formulario de Perfil con \`OutlinedTextField\` (nombre mín. 3 caracteres) y selector de \`NivelExperiencia\`.\n- [ ] Formulario de Dispositivo con nombre, selector de \`TipoDispositivo\` y sistema operativo.\n- [ ] Validación en tiempo real mediante \`StateFlow\` mostrando mensajes de error claros (\`RN-03\`).`
+              },
+              {
+                title: '[Tarea 07 · Guía 11] Pantalla Interactiva del Cuestionario Preventivo (4 Pilares de Seguridad)',
+                labels: ['estado: por-hacer', 'prioridad: alta', 'capa: ui-compose'],
+                completed: false,
+                body: `### Objetivo (Guía 11 - RF-03 y RF-04)\nPermitir al usuario responder las preguntas sobre *Respaldos*, *Actualizaciones*, *Autenticación (2FA)* y *Recuperación de Cuentas*.\n\n### Criterios de Aceptación\n- [ ] Mostrar cada pregunta con su categoría y opciones seleccionables.\n- [ ] Validar que todas las preguntas estén respondidas antes de finalizar.\n- [ ] Al finalizar, calcular el diagnóstico (\`RN-01\`) y navegar a la vista de resultados / checklist.`
+              },
+              {
+                title: '[Tarea 08 · Guía 12] Semáforo de Riesgo Animado y Persistencia de Perfil con DataStore',
+                labels: ['estado: por-hacer', 'prioridad: media', 'capa: ui-compose'],
+                completed: false,
+                body: `### Objetivo (Guía 12 - RF-04 y RNF-04)\nEnriquecer la retroalimentación visual con animaciones declarativas y persistir las preferencias del usuario.\n\n### Criterios de Aceptación\n- [ ] Implementar \`AnimatedVisibility\` y \`animateColorAsState\` en el indicador de Nivel de Riesgo y progreso del checklist.\n- [ ] Guardar los datos básicos del perfil ficticio localmente con **Preferences DataStore**.`
+              },
+              {
+                title: '[Tarea 09 · Guía 13] Integración de Recursos Nativos: Cámara para Dispositivos y Notificaciones',
+                labels: ['estado: por-hacer', 'prioridad: alta', 'capa: nativo'],
+                completed: false,
+                body: `### Objetivo (Guía 13 - RF-02 y RF-08)\nIntegrar el acceso seguro a recursos nativos del teléfono Android.\n\n### Criterios de Aceptación\n- [ ] Solicitar permiso de cámara en tiempo de ejecución (\`rememberLauncherForActivityResult\`).\n- [ ] Permitir capturar o adjuntar una fotografía de referencia al registrar un dispositivo de prueba.\n- [ ] Emitir una notificación local preventiva recordando revisar las acciones urgentes del checklist.`
+              },
+              {
+                title: '[Tarea 10 · Actividad 2.5] Persistencia Relacional Local con Room Database (SQLite)',
+                labels: ['estado: por-hacer', 'prioridad: alta', 'capa: persistencia'],
+                completed: false,
+                body: `### Objetivo (Actividad 2.5 - RF-05 y RF-06)\nImplementar almacenamiento persistente con **SQLite** usando la librería **Room**.\n\n### Criterios de Aceptación\n- [ ] Definir entidades \`@Entity\` para Dispositivos, Evaluaciones e Ítems del Checklist.\n- [ ] Crear interfaces \`@Dao\` con consultas reactivas (\`Flow\`) e inserciones/actualizaciones \`suspend\`.\n- [ ] Configurar \`@Database\` (\`TioTecDatabase\`) y conectarla con \`TioTecRepository\` y \`TioTecViewModel\`.`
+              }
+            ];
+
+            for (const task of tasks) {
+              if (!existingTitles.has(task.title.trim())) {
+                const created = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: task.title,
+                  body: task.body,
+                  labels: task.labels
+                });
+                console.log(`Issue creado: #${created.data.number} - ${task.title}`);
+
+                if (task.completed) {
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: created.data.number,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+                  console.log(`Issue cerrado como completado: #${created.data.number}`);
+                }
+              } else {
+                console.log(`Issue ya existe, omitiendo: ${task.title}`);
+              }
+            }

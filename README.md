@@ -67,6 +67,6 @@ Para facilitar el trabajo colaborativo y la preparación de las defensas, toda l
 | 📄 **[`01-Caso-Oficial-TioTec.md`](./docs/01-Caso-Oficial-TioTec.md)** | Enunciado íntegro del caso *TíoTec Preventivo* (MCmovil SpA) y contexto del problema. |
 | 📋 **[`02-Requerimientos-y-Reglas-Negocio.md`](./docs/02-Requerimientos-y-Reglas-Negocio.md)** | Especificación de Requerimientos Funcionales (`RF-01` a `RF-06`), Reglas de Negocio (`RN-01` a `RN-04`) y diagrama Mermaid (Guía 7 - Parte 1). |
 | 🛠️ **[`03-Guia-Companero-MVVM-y-Defensa.md`](./docs/03-Guia-Companero-MVVM-y-Defensa.md)** | Guía paso a paso para clonar y abrir en Android Studio, explicación de capas MVVM y **preguntas/respuestas para la defensa oral (Parcial 3)**. |
-| 📌 **[`04-Planificacion-Trello-y-Tareas.md`](./docs/04-Planificacion-Trello-y-Tareas.md)** | Estructura del tablero Trello (*Por hacer, En curso, Finalizado*) y división sugerida de tareas entre integrantes (Guía 7 - Parte 3). |
+| 📌 **[`04-Planificacion-GitHub-Projects-y-CI.md`](./docs/04-Planificacion-GitHub-Projects-y-CI.md)** | Automatización del tablero en **GitHub Projects**, creación automática de Issues por Guía y pipeline **Android CI/CD** (`.github/workflows/`). |
 | 📁 **[`docs/pdfs/`](./docs/pdfs)** | Copia de respaldo de los PDFs oficiales (`Caso_005V_TioTec_Preventivo.pdf` y `Guía 7`). |
 
