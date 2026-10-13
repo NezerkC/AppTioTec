@@ -128,6 +128,9 @@ jobs:
               per_page: 100
             });
 
+            const actor = context.actor;
+            const shortSha = context.sha ? context.sha.substring(0, 7) : 'local';
+
             let completedCount = 0;
             let nextTaskFound = false;
             const summaryRows = [];
@@ -136,9 +139,12 @@ jobs:
               const issue = issues.find(i => i.title.startsWith(rule.key));
               if (rule.isDone) {
                 completedCount++;
-                summaryRows.push(`| ✅ Completado | **${rule.key}]** ${rule.name} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
+                const assigneeNames = issue && issue.assignees && issue.assignees.length > 0
+                  ? issue.assignees.map(a => `@${a.login}`).join(', ')
+                  : `@${actor}`;
+                summaryRows.push(`| ✅ Completado | **${rule.key}]** ${rule.name} | ${assigneeNames} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
 
-                // Si el issue estaba abierto en GitHub, cerrarlo automáticamente y ponerle etiqueta finalizado
+                // Si el issue estaba abierto en GitHub, cerrarlo automáticamente, asignar al autor y ponerle etiqueta finalizado
                 if (issue && issue.state === 'open') {
                   const newLabels = issue.labels
                     .map(l => l.name)
@@ -149,7 +155,7 @@ jobs:
                     owner,
                     repo,
                     issue_number: issue.number,
-                    body: `🎉 **¡Tarea verificada automáticamente en el código!**\n\nEl sistema de Auto-Tracking detectó que los componentes requeridos para **${rule.name}** ya fueron implementados en la rama \`main\`.\nSe marca esta tarea como **Finalizada** y se mueve a **Done**.`
+                    body: `🎉 **¡Tarea verificada automáticamente en el código!**\n\n- 👤 **Realizada por:** @${actor}\n- 🔗 **Commit:** \`${shortSha}\`\n\nEl sistema de Auto-Tracking detectó que los componentes requeridos para **${rule.name}** ya fueron implementados en la rama \`main\`. Se asigna la autoría a @${actor} y se mueve a **Done**.`
                   });
 
                   await github.rest.issues.update({
@@ -158,14 +164,28 @@ jobs:
                     issue_number: issue.number,
                     state: 'closed',
                     state_reason: 'completed',
-                    labels: newLabels
+                    labels: newLabels,
+                    assignees: [actor]
+                  }).catch(async () => {
+                    // Fallback si el colaborador aún no acepta invitación para ser assignee
+                    await github.rest.issues.update({
+                      owner,
+                      repo,
+                      issue_number: issue.number,
+                      state: 'closed',
+                      state_reason: 'completed',
+                      labels: newLabels
+                    });
                   });
                 }
               } else {
                 const isNext = !nextTaskFound;
                 if (isNext) nextTaskFound = true;
                 const statusIcon = isNext ? '🔥 Siguiente a realizar (En Curso)' : '⏳ Pendiente (Por Hacer)';
-                summaryRows.push(`| ${statusIcon} | **${rule.key}]** ${rule.name} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
+                const currentAssignee = issue && issue.assignees && issue.assignees.length > 0
+                  ? issue.assignees.map(a => `@${a.login}`).join(', ')
+                  : 'Sin asignar';
+                summaryRows.push(`| ${statusIcon} | **${rule.key}]** ${rule.name} | ${currentAssignee} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
 
                 if (issue && issue.state === 'open' && isNext) {
                   const currentLabelNames = issue.labels.map(l => l.name);
@@ -185,7 +205,7 @@ jobs:
                       owner,
                       repo,
                       issue_number: issue.number,
-                      body: `🚀 **Esta es la tarea activa actual del equipo.**\n\n${rule.coachTip}\n\n> 💡 *Tip: No necesitas cerrar este Issue manualmente. En cuanto subas el código a \`main\`, el Auto-Tracker lo detectará y lo cerrará por ti.*`
+                      body: `🚀 **Esta es la tarea activa actual del equipo.**\n\n${rule.coachTip}\n\n> 💡 *Tip: En cuanto tú o tu compañero suban el código a \`main\`, el Auto-Tracker detectará quién hizo el \`git push\`, le asignará la autoría de esta tarea automáticamente y la cerrará.*`
                     });
                   }
                 }
@@ -197,7 +217,7 @@ jobs:
             const nextRule = rules.find(r => !r.isDone);
 
             let summaryMarkdown = `## 📊 Progreso Automático de AppTioTec: ${percent}% (${completedCount}/${rules.length} tareas)\n\n`;
-            summaryMarkdown += `| Estado en Código | Tarea de la Unidad 2 | Issue |\n| :--- | :--- | :--- |\n`;
+            summaryMarkdown += `| Estado en Código | Tarea de la Unidad 2 | Responsable / Autor | Issue |\n| :--- | :--- | :--- | :--- |\n`;
             summaryMarkdown += summaryRows.join('\n') + '\n\n';
 
             if (nextRule) {

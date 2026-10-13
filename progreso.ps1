@@ -110,9 +110,27 @@ if ($null -ne $nextTask) {
     Write-Host "  $($nextTask.Guide)" -ForegroundColor White
     Write-Host ""
     Write-Host "  Nota: Al hacer 'git push origin main', GitHub Actions cerrara la tarea" -ForegroundColor Gray
-    Write-Host "        automaticamente en GitHub Projects cuando detecte este codigo." -ForegroundColor Gray
+    Write-Host "        automaticamente y asignara el autor del push en GitHub Projects." -ForegroundColor Gray
     Write-Host "----------------------------------------------------------------------" -ForegroundColor Yellow
 } else {
     Write-Host "  [EXITO] Todas las tareas de la Unidad 2 estan completadas!" -ForegroundColor Green
 }
+
 Write-Host ""
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "  QUIEN HIZO QUE (HISTORIAL DE APORTES EN GIT)" -ForegroundColor Cyan
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host "  Resumen de commits por integrante:" -ForegroundColor White
+$authors = git -C $PSScriptRoot shortlog -sn --all
+foreach ($line in $authors) {
+    Write-Host "   -> $($line.Trim()) commits" -ForegroundColor Green
+}
+Write-Host ""
+Write-Host "  Ultimos 5 avances registrados:" -ForegroundColor White
+$recentCommits = git -C $PSScriptRoot log -n 5 --pretty=format:"   [%h] %ad | %an: %s" --date=short
+foreach ($c in $recentCommits) {
+    Write-Host $c -ForegroundColor Gray
+}
+Write-Host "======================================================================" -ForegroundColor Cyan
+Write-Host ""
+
