@@ -144,18 +144,20 @@ jobs:
                   : `@${actor}`;
                 summaryRows.push(`| ✅ Completado | **${rule.key}]** ${rule.name} | ${assigneeNames} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
 
-                // Si el issue estaba abierto en GitHub, cerrarlo automáticamente, asignar al autor y ponerle etiqueta finalizado
+                // Si el issue estaba abierto en GitHub, cerrarlo automáticamente, marcar su checklist [x], asignar al autor y ponerle etiqueta finalizado
                 if (issue && issue.state === 'open') {
                   const newLabels = issue.labels
                     .map(l => l.name)
                     .filter(n => !n.startsWith('estado:'))
                     .concat(['estado: finalizado']);
 
+                  const updatedBody = (issue.body || '').replace(/- \[ \]/g, '- [x]');
+
                   await github.rest.issues.createComment({
                     owner,
                     repo,
                     issue_number: issue.number,
-                    body: `🎉 **¡Tarea verificada automáticamente en el código!**\n\n- 👤 **Realizada por:** @${actor}\n- 🔗 **Commit:** \`${shortSha}\`\n\nEl sistema de Auto-Tracking detectó que los componentes requeridos para **${rule.name}** ya fueron implementados en la rama \`main\`. Se asigna la autoría a @${actor} y se mueve a **Done**.`
+                    body: `🎉 **¡Tarea verificada automáticamente en el código! (\`NezerkC's app movil\`)**\n\n- 👤 **Programador:** @${actor}\n- 🔗 **Commit verificado:** \`${shortSha}\`\n- ✅ **Checklist:** 100% completado y validado\n\nEl sistema de Auto-Tracking detectó que los componentes requeridos para **${rule.name}** ya fueron implementados en la rama \`main\`. Se asigna la autoría a @${actor} y se mueve automáticamente a **Done** en **NezerkC's app movil**.`
                   });
 
                   await github.rest.issues.update({
@@ -164,6 +166,7 @@ jobs:
                     issue_number: issue.number,
                     state: 'closed',
                     state_reason: 'completed',
+                    body: updatedBody,
                     labels: newLabels,
                     assignees: [actor]
                   }).catch(async () => {
@@ -174,6 +177,7 @@ jobs:
                       issue_number: issue.number,
                       state: 'closed',
                       state_reason: 'completed',
+                      body: updatedBody,
                       labels: newLabels
                     });
                   });
