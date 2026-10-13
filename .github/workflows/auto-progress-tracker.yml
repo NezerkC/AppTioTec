@@ -1,0 +1,209 @@
+name: "🧠 Auto-Tracker & AI Task Coach (Progreso Automático)"
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  evaluate-progress:
+    name: Analizar Código y Actualizar Tareas Automáticamente
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout del Código Fuente
+        uses: actions/checkout@v4
+
+      - name: 🔍 Analizar Avance Real en el Código y Sincronizar Issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Función auxiliar para leer todo el código Kotlin del proyecto
+            function getAllKotlinCode(dir, fileList = []) {
+              if (!fs.existsSync(dir)) return fileList;
+              const files = fs.readdirSync(dir);
+              for (const file of files) {
+                const fullPath = path.join(dir, file);
+                if (fs.statSync(fullPath).isDirectory()) {
+                  getAllKotlinCode(fullPath, fileList);
+                } else if (file.endsWith('.kt')) {
+                  fileList.push({
+                    name: file,
+                    path: fullPath,
+                    content: fs.readFileSync(fullPath, 'utf8')
+                  });
+                }
+              }
+              return fileList;
+            }
+
+            const srcDir = 'app/src/main/java/cl/duoc/tiotec';
+            const ktFiles = getAllKotlinCode(srcDir);
+            const allCode = ktFiles.map(f => f.content).join('\n');
+            const uiCode = ktFiles
+              .filter(f => f.path.includes('/ui/') || f.path.includes('\\ui\\') || f.name === 'Navigation.kt')
+              .map(f => f.content)
+              .join('\n');
+            const buildGradle = fs.existsSync('app/build.gradle.kts')
+              ? fs.readFileSync('app/build.gradle.kts', 'utf8')
+              : '';
+
+            // Reglas de detección automática basadas en el código real
+            const rules = [
+              {
+                key: '[Tarea 01',
+                name: 'Levantamiento de Requerimientos (Guía 7)',
+                isDone: fs.existsSync('docs/01-Caso-Oficial-TioTec.md') && fs.existsSync('docs/02-Requerimientos-y-Reglas-Negocio.md'),
+                coachTip: 'Documentar el caso oficial TíoTec Preventivo y las reglas RN-01 a RN-04 en la carpeta `docs/`.'
+              },
+              {
+                key: '[Tarea 02',
+                name: 'Configuración Inicial Compose y MVVM (Guía 7)',
+                isDone: fs.existsSync(`${srcDir}/model`) && fs.existsSync(`${srcDir}/viewmodel`) && fs.existsSync(`${srcDir}/repository`),
+                coachTip: 'Crear la estructura base de paquetes `model/`, `repository/`, `viewmodel/` y `ui/`.'
+              },
+              {
+                key: '[Tarea 03',
+                name: 'Modelos, Repositorio y TioTecViewModel (Guía 7)',
+                isDone: allCode.includes('class TioTecViewModel') && allCode.includes('StateFlow<TioTecUiState>'),
+                coachTip: 'Implementar `TioTecViewModel` con `MutableStateFlow` y las reglas `RN-01` y `RN-02`.'
+              },
+              {
+                key: '[Tarea 04',
+                name: 'Dashboard Principal Material 3 (Guía 8 y 9)',
+                isDone: uiCode.includes('NivelRiesgo') && uiCode.includes('Card('),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 8 y 9)\n1. En \`ui/main/MainScreen.kt\`, conectar \`TioTecViewModel\` usando \`viewModel.uiState.collectAsStateWithLifecycle()\`.\n2. Crear un componente \`@Composable fun DashboardTab(state: TioTecUiState)\` usando \`Card\`, \`MaterialTheme.colorScheme\` y \`Column\`.\n3. Mostrar el **Nivel de Riesgo actual** (\`state.ultimaEvaluacion?.nivelRiesgo\`), el total de dispositivos registrados y el contador de acciones pendientes.`
+              },
+              {
+                key: '[Tarea 05',
+                name: 'Navegación Estructurada con Scaffold y NavigationBar (Guía 10)',
+                isDone: uiCode.includes('Scaffold(') && (uiCode.includes('NavigationBar(') || uiCode.includes('NavigationBarItem(')) && uiCode.includes('TopAppBar('),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 10)\n1. En \`MainScreen.kt\` o \`Navigation.kt\`, envolver la pantalla principal en un \`Scaffold\` de Material 3.\n2. Agregar \`TopAppBar\` con el título **"TíoTec Preventivo · MCmovil"**.\n3. Agregar \`NavigationBar\` inferior con 4 pestañas: **Inicio**, **Evaluar**, **Checklist** y **Perfil/Equipos**.`
+              },
+              {
+                key: '[Tarea 06',
+                name: 'Formularios Validados de Perfil y Dispositivos (Guía 11)',
+                isDone: uiCode.includes('OutlinedTextField(') && uiCode.includes('agregarDispositivo(') && uiCode.includes('actualizarPerfil('),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 11 - RF-01 y RF-02)\n1. Crear la pestaña/pantalla de **Perfil y Dispositivos**.\n2. Incluir \`OutlinedTextField\` para el nombre del usuario y del dispositivo de prueba.\n3. Mostrar visualmente \`state.errorFormulario\` en color \`MaterialTheme.colorScheme.error\` cuando el nombre tenga menos de 3 caracteres (\`RN-03\`).`
+              },
+              {
+                key: '[Tarea 07',
+                name: 'Cuestionario Preventivo de 4 Pilares (Guía 11)',
+                isDone: uiCode.includes('seleccionarRespuesta(') && uiCode.includes('finalizarEvaluacion('),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 11 - RF-03 y RF-04)\n1. Crear la pestaña/pantalla **Cuestionario Preventivo** iterando sobre \`state.preguntas\`.\n2. Por cada pregunta mostrar sus 3 opciones (\`RadioButton\` o \`FilterChip\` / \`OutlinedCard\`) llamando a \`viewModel.seleccionarRespuesta(pregunta.id, opcion.puntaje)\`.\n3. Agregar botón **"Finalizar y Diagnosticar"** que invoque \`viewModel.finalizarEvaluacion()\`.`
+              },
+              {
+                key: '[Tarea 08',
+                name: 'Animaciones Declarativas y DataStore (Guía 12)',
+                isDone: (uiCode.includes('AnimatedVisibility') || uiCode.includes('animateColorAsState')) && (allCode.includes('DataStore') || allCode.includes('preferencesDataStore') || buildGradle.includes('datastore')),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 12)\n1. Envolver los mensajes de alerta y el semáforo de riesgo con \`AnimatedVisibility\` y \`animateColorAsState\`.\n2. Agregar dependencia \`androidx.datastore:datastore-preferences\` en \`app/build.gradle.kts\` para persistir el perfil ficticio.`
+              },
+              {
+                key: '[Tarea 09',
+                name: 'Recursos Nativos: Cámara y Notificaciones (Guía 13)',
+                isDone: uiCode.includes('rememberLauncherForActivityResult') && (uiCode.includes('TakePicturePreview') || uiCode.includes('TakePicture') || uiCode.includes('RequestPermission')),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Guía 13 - RF-02 y RF-08)\n1. En la pantalla de Dispositivos, usar \`rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview())\` para adjuntar una foto ficticia al equipo.\n2. Implementar un botón o disparador con \`NotificationCompat.Builder\` para recordar al usuario revisar sus acciones pendientes.`
+              },
+              {
+                key: '[Tarea 10',
+                name: 'Persistencia Local con Room Database / SQLite (Actividad 2.5)',
+                isDone: allCode.includes('@Entity') && allCode.includes('@Dao') && allCode.includes('@Database'),
+                coachTip: `### 🤖 Qué debemos hacer en esta tarea (Actividad 2.5 - SQLite / Room)\n1. Agregar dependencias de \`androidx.room:room-runtime\` y \`room-ktx\` en \`app/build.gradle.kts\`.\n2. Anotar las entidades de base de datos con \`@Entity\`, crear \`TioTecDao\` (\`@Dao\`) y \`TioTecDatabase\` (\`@Database\`).`
+              }
+            ];
+
+            // Obtener los issues actuales del repositorio
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'all',
+              per_page: 100
+            });
+
+            let completedCount = 0;
+            let nextTaskFound = false;
+            const summaryRows = [];
+
+            for (const rule of rules) {
+              const issue = issues.find(i => i.title.startsWith(rule.key));
+              if (rule.isDone) {
+                completedCount++;
+                summaryRows.push(`| ✅ Completado | **${rule.key}]** ${rule.name} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
+
+                // Si el issue estaba abierto en GitHub, cerrarlo automáticamente y ponerle etiqueta finalizado
+                if (issue && issue.state === 'open') {
+                  const newLabels = issue.labels
+                    .map(l => l.name)
+                    .filter(n => !n.startsWith('estado:'))
+                    .concat(['estado: finalizado']);
+
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    body: `🎉 **¡Tarea verificada automáticamente en el código!**\n\nEl sistema de Auto-Tracking detectó que los componentes requeridos para **${rule.name}** ya fueron implementados en la rama \`main\`.\nSe marca esta tarea como **Finalizada** y se mueve a **Done**.`
+                  });
+
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    state: 'closed',
+                    state_reason: 'completed',
+                    labels: newLabels
+                  });
+                }
+              } else {
+                const isNext = !nextTaskFound;
+                if (isNext) nextTaskFound = true;
+                const statusIcon = isNext ? '🔥 Siguiente a realizar (En Curso)' : '⏳ Pendiente (Por Hacer)';
+                summaryRows.push(`| ${statusIcon} | **${rule.key}]** ${rule.name} | Issue ${issue ? '#' + issue.number : 'N/A'} |`);
+
+                if (issue && issue.state === 'open' && isNext) {
+                  const currentLabelNames = issue.labels.map(l => l.name);
+                  if (!currentLabelNames.includes('estado: en-curso')) {
+                    const updatedLabels = currentLabelNames
+                      .filter(n => !n.startsWith('estado:'))
+                      .concat(['estado: en-curso']);
+
+                    await github.rest.issues.update({
+                      owner,
+                      repo,
+                      issue_number: issue.number,
+                      labels: updatedLabels
+                    });
+
+                    await github.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: issue.number,
+                      body: `🚀 **Esta es la tarea activa actual del equipo.**\n\n${rule.coachTip}\n\n> 💡 *Tip: No necesitas cerrar este Issue manualmente. En cuanto subas el código a \`main\`, el Auto-Tracker lo detectará y lo cerrará por ti.*`
+                    });
+                  }
+                }
+              }
+            }
+
+            // Generar Resumen Ejecutivo en la pestaña Actions de GitHub
+            const percent = Math.round((completedCount / rules.length) * 100);
+            const nextRule = rules.find(r => !r.isDone);
+
+            let summaryMarkdown = `## 📊 Progreso Automático de AppTioTec: ${percent}% (${completedCount}/${rules.length} tareas)\n\n`;
+            summaryMarkdown += `| Estado en Código | Tarea de la Unidad 2 | Issue |\n| :--- | :--- | :--- |\n`;
+            summaryMarkdown += summaryRows.join('\n') + '\n\n';
+
+            if (nextRule) {
+              summaryMarkdown += `---\n### 🎯 Próximo Paso Recomendado por la IA: ${nextRule.name}\n\n${nextRule.coachTip}\n`;
+            } else {
+              summaryMarkdown += `---\n### 🏆 ¡Felicidades! El 100% de las tareas de la Unidad 2 están implementadas.\n`;
+            }
+
+            await core.summary.addRaw(summaryMarkdown).write();
