@@ -27,4 +27,7 @@ data class EvaluacionSeguridad(
     val puntajeMaximo: Int,
     val nivelRiesgo: NivelRiesgo,
     val respuestas: Map<Int, Int> = emptyMap()
-)
+) {
+    val porcentajeCumplimiento: Double
+        get() = if (puntajeMaximo > 0) (puntajeTotal.toDouble() / puntajeMaximo.toDouble()) * 100.0 else 0.0
+}
