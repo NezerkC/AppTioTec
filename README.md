@@ -1,8 +1,13 @@
 # TíoTec Preventivo · Evaluación y Orientación para Seguridad Digital (`AppTioTec`)
 
+[![Android CI](https://github.com/NezerkC/AppTioTec/actions/workflows/android-ci.yml/badge.svg)](https://github.com/NezerkC/AppTioTec/actions/workflows/android-ci.yml)
+[![Auto-Tracker](https://github.com/NezerkC/AppTioTec/actions/workflows/auto-progress-tracker.yml/badge.svg)](https://github.com/NezerkC/AppTioTec/actions/workflows/auto-progress-tracker.yml)
+![Progreso](https://img.shields.io/badge/Progreso-50%25%20(5%2F10%20Tareas)-0E8A16?style=flat&logo=github)
+
 **Asignatura:** DSY1105 - Desarrollo de Aplicaciones Móviles (Sección 005V)  
 **Institución:** Duoc UC · Escuela de Informática y Telecomunicaciones (Sede Alameda)  
 **Organización del Caso:** MCmovil SpA  
+**Tablero de Seguimiento:** [GitHub Projects (AppTioTec · Unidad 2)](https://github.com/users/NezerkC/projects/5)  
 
 ---
 

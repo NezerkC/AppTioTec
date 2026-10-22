@@ -30,19 +30,19 @@ Una vez que el workflow `seed-project-backlog.yml` termina de ejecutarse en la p
 
 ---
 
-## 3. Estado del Backlog en GitHub Issues / Projects
+## 3. Estado del Backlog en GitHub Issues / Projects (50% Completado)
 
 ### ✅ Columna 1: Finalizado (`Done` · `estado: finalizado`)
 * **Issue #1 · `[Tarea 01 · Guía 7]`:** Levantamiento de Requerimientos y Reglas de Negocio (Caso TíoTec).
 * **Issue #2 · `[Tarea 02 · Guía 7]`:** Configuración Inicial del Proyecto Android con Jetpack Compose y MVVM.
 * **Issue #3 · `[Tarea 03 · Guía 7]`:** Implementación de Modelos de Dominio, Repositorio y `TioTecViewModel`.
-
-### 🔄 Columna 2: En Curso (`In Progress` · `estado: en-curso`)
 * **Issue #4 · `[Tarea 04 · Guía 8 y 9]`:** Construcción Visual del Dashboard Principal y Adaptabilidad Material 3.
 * **Issue #5 · `[Tarea 05 · Guía 10]`:** Flujo de Navegación Estructurada (`Scaffold`, `TopAppBar` y `NavigationBar`).
 
-### 📋 Columna 3: Por Hacer (`Todo` · `estado: por-hacer`)
+### 🔄 Columna 2: En Curso (`In Progress` · `estado: en-curso`)
 * **Issue #6 · `[Tarea 06 · Guía 11]`:** Pantalla de Perfil Ficticio e Inventario de Dispositivos con Validación Reactiva.
+
+### 📋 Columna 3: Por Hacer (`Todo` · `estado: por-hacer`)
 * **Issue #7 · `[Tarea 07 · Guía 11]`:** Pantalla Interactiva del Cuestionario Preventivo (4 Pilares de Seguridad).
 * **Issue #8 · `[Tarea 08 · Guía 12]`:** Semáforo de Riesgo Animado y Persistencia de Perfil con DataStore.
 * **Issue #9 · `[Tarea 09 · Guía 13]`:** Integración de Recursos Nativos: Cámara para Dispositivos y Notificaciones.
