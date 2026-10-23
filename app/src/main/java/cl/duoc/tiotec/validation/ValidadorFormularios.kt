@@ -32,4 +32,13 @@ object ValidadorFormularios {
         }
         return null
     }
+
+    /**
+     * Cuestionario (RN-03): no se puede finalizar si faltan preguntas.
+     * Devuelve los id de las preguntas que todavía no tienen respuesta
+     * (conjunto vacío = cuestionario completo).
+     */
+    fun preguntasSinResponder(idsPreguntas: List<Int>, respuestas: Map<Int, Int>): Set<Int> {
+        return idsPreguntas.filter { id -> id !in respuestas }.toSet()
+    }
 }

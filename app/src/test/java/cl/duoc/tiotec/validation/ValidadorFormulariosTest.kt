@@ -1,5 +1,6 @@
 package cl.duoc.tiotec.validation
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -50,5 +51,25 @@ class ValidadorFormulariosTest {
     @Test
     fun sistemaOperativo_valido() {
         assertNull(ValidadorFormularios.validarSistemaOperativo("Android 14"))
+    }
+
+    // --- Cuestionario ---
+
+    @Test
+    fun cuestionario_incompleto_devuelvePreguntasFaltantes() {
+        val faltantes = ValidadorFormularios.preguntasSinResponder(
+            idsPreguntas = listOf(1, 2, 3, 4),
+            respuestas = mapOf(1 to 2, 3 to 0)
+        )
+        assertEquals(setOf(2, 4), faltantes)
+    }
+
+    @Test
+    fun cuestionario_completo_noTieneFaltantes() {
+        val faltantes = ValidadorFormularios.preguntasSinResponder(
+            idsPreguntas = listOf(1, 2),
+            respuestas = mapOf(1 to 1, 2 to 2)
+        )
+        assertEquals(emptySet<Int>(), faltantes)
     }
 }
