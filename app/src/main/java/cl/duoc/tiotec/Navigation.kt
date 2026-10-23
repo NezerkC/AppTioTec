@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.ui.evaluacion.EvaluacionScreen
+import cl.duoc.tiotec.ui.historial.HistorialScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
 import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
@@ -60,6 +62,7 @@ enum class SeccionNavegacion(
     INICIO("Inicio", Icons.Default.Home, "Dashboard de Seguridad"),
     EVALUAR("Evaluar", Icons.Default.Info, "Diagnóstico de 4 Pilares"),
     CHECKLIST("Checklist", Icons.Default.Check, "Plan de Acciones"),
+    HISTORIAL("Historial", Icons.Default.DateRange, "Evaluaciones Anteriores"),
     PERFIL("Perfil", Icons.Default.Person, "Perfil y Dispositivos")
 }
 
@@ -175,6 +178,9 @@ fun MainNavigation(
                         state = state,
                         onToggleAccion = { id -> viewModel.alternarEstadoAccion(id) }
                     )
+                }
+                SeccionNavegacion.HISTORIAL -> {
+                    HistorialScreen(historial = state.historial)
                 }
                 SeccionNavegacion.PERFIL -> {
                     PerfilScreen(
