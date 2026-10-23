@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import cl.duoc.tiotec.model.AccionChecklist
 import cl.duoc.tiotec.model.EvaluacionSeguridad
 import cl.duoc.tiotec.model.PrioridadAccion
+import cl.duoc.tiotec.nativo.BotonRecordatorio
 import cl.duoc.tiotec.ui.components.coloresDe
 
 /**
@@ -53,6 +54,7 @@ import cl.duoc.tiotec.ui.components.coloresDe
 fun ResultadoEvaluacionScreen(
     evaluacion: EvaluacionSeguridad,
     accionesGeneradas: List<AccionChecklist>,
+    accionesUrgentesPendientes: Int,
     onVerChecklist: () -> Unit,
     onNuevaEvaluacion: () -> Unit,
     modifier: Modifier = Modifier
@@ -152,6 +154,8 @@ fun ResultadoEvaluacionScreen(
 
         item {
             Spacer(Modifier.height(4.dp))
+            // Recurso nativo: notificación local (#9)
+            BotonRecordatorio(accionesUrgentes = accionesUrgentesPendientes)
             Button(onClick = onVerChecklist, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
