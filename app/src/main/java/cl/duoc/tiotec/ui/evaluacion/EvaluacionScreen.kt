@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.viewmodel.TioTecUiState
 
 /**
@@ -43,6 +44,9 @@ fun EvaluacionScreen(
             ResultadoEvaluacionScreen(
                 evaluacion = resultado,
                 accionesGeneradas = state.accionesGeneradas,
+                accionesUrgentesPendientes = state.checklist.count {
+                    !it.completada && it.prioridad == PrioridadAccion.ALTA
+                },
                 onVerChecklist = onVerChecklist,
                 onNuevaEvaluacion = onNuevaEvaluacion
             )

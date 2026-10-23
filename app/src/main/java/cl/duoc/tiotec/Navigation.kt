@@ -191,6 +191,7 @@ fun MainNavigation(
                         onNombreDispositivoChange = viewModel::onNombreDispositivoChange,
                         onTipoDispositivoChange = viewModel::onTipoDispositivoChange,
                         onSistemaOperativoChange = viewModel::onSistemaOperativoChange,
+                        onFotoDispositivoChange = viewModel::onFotoDispositivoChange,
                         onRegistrarDispositivo = viewModel::registrarDispositivo
                     )
                 }

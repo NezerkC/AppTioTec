@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import cl.duoc.tiotec.model.Dispositivo
 import cl.duoc.tiotec.model.NivelExperiencia
 import cl.duoc.tiotec.model.TipoDispositivo
+import cl.duoc.tiotec.nativo.BotonTomarFoto
+import cl.duoc.tiotec.nativo.FotoMiniatura
+import cl.duoc.tiotec.nativo.VistaPreviaFoto
 import cl.duoc.tiotec.theme.AppTioTecTheme
 import cl.duoc.tiotec.ui.components.CampoTextoValidado
 import cl.duoc.tiotec.ui.components.SelectorOpciones
@@ -56,6 +59,7 @@ fun PerfilScreen(
     onNombreDispositivoChange: (String) -> Unit,
     onTipoDispositivoChange: (TipoDispositivo) -> Unit,
     onSistemaOperativoChange: (String) -> Unit,
+    onFotoDispositivoChange: (String?) -> Unit,
     onRegistrarDispositivo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -78,6 +82,7 @@ fun PerfilScreen(
                 onNombreDispositivoChange = onNombreDispositivoChange,
                 onTipoDispositivoChange = onTipoDispositivoChange,
                 onSistemaOperativoChange = onSistemaOperativoChange,
+                onFotoDispositivoChange = onFotoDispositivoChange,
                 onRegistrarDispositivo = onRegistrarDispositivo
             )
         }
@@ -166,6 +171,7 @@ private fun TarjetaRegistroDispositivo(
     onNombreDispositivoChange: (String) -> Unit,
     onTipoDispositivoChange: (TipoDispositivo) -> Unit,
     onSistemaOperativoChange: (String) -> Unit,
+    onFotoDispositivoChange: (String?) -> Unit,
     onRegistrarDispositivo: () -> Unit
 ) {
     Card(
@@ -208,6 +214,10 @@ private fun TarjetaRegistroDispositivo(
                 error = state.errorSistemaOperativo
             )
 
+            // Recurso nativo: foto opcional del dispositivo (#9)
+            BotonTomarFoto(onFotoTomada = onFotoDispositivoChange)
+            state.fotoDispositivoInput?.let { ruta -> VistaPreviaFoto(ruta) }
+
             Button(
                 onClick = onRegistrarDispositivo,
                 modifier = Modifier.fillMaxWidth()
@@ -230,11 +240,15 @@ private fun ItemDispositivo(dispositivo: Dispositivo) {
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Phone,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            if (dispositivo.fotoUri != null) {
+                FotoMiniatura(ruta = dispositivo.fotoUri)
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Phone,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(
                     text = dispositivo.nombre,
@@ -263,6 +277,7 @@ private fun PerfilScreenPreview() {
             onNombreDispositivoChange = {},
             onTipoDispositivoChange = {},
             onSistemaOperativoChange = {},
+            onFotoDispositivoChange = {},
             onRegistrarDispositivo = {}
         )
     }
