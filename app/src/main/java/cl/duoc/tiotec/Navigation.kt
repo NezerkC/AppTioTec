@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.tiotec.model.PrioridadAccion
+import cl.duoc.tiotec.ui.evaluacion.EvaluacionScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
 import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
@@ -158,9 +159,15 @@ fun MainNavigation(
                     )
                 }
                 SeccionNavegacion.EVALUAR -> {
-                    PantallaSeccionEvaluar(
+                    EvaluacionScreen(
                         state = state,
-                        onIrAInicio = { seccionActual = SeccionNavegacion.INICIO }
+                        onSeleccionarRespuesta = viewModel::seleccionarRespuesta,
+                        onFinalizar = { viewModel.finalizarEvaluacion() },
+                        onVerChecklist = {
+                            viewModel.cerrarResultado()
+                            seccionActual = SeccionNavegacion.CHECKLIST
+                        },
+                        onNuevaEvaluacion = viewModel::cerrarResultado
                     )
                 }
                 SeccionNavegacion.CHECKLIST -> {
@@ -257,52 +264,6 @@ private fun PantallaSeccionChecklist(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PantallaSeccionEvaluar(
-    state: TioTecUiState,
-    onIrAInicio: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Cuestionario Preventivo (4 Pilares)",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = "Total de preguntas: ${state.preguntas.size} | Respuestas completadas: ${state.respuestasActuales.size}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Pilares evaluados:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = "• Respaldos periódicos\n• Actualizaciones de seguridad\n• Autenticación en dos pasos (2FA)\n• Métodos de recuperación de cuenta",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
             }
         }
     }
