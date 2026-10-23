@@ -42,6 +42,7 @@ data class TioTecUiState(
     val tipoDispositivoSeleccionado: TipoDispositivo = TipoDispositivo.SMARTPHONE,
     val sistemaOperativoInput: String = "",
     val errorSistemaOperativo: String? = null,
+    val fotoDispositivoInput: String? = null, // ruta de la foto tomada con la cámara (#9)
 
     // Cuestionario (RF-03 / RF-04)
     val preguntasSinResponder: Set<Int> = emptySet(),
@@ -129,6 +130,11 @@ class TioTecViewModel(
         }
     }
 
+    /** Recibe la ruta de la foto tomada con la cámara (opcional). */
+    fun onFotoDispositivoChange(ruta: String?) {
+        _uiState.update { it.copy(fotoDispositivoInput = ruta) }
+    }
+
     /** Valida los dos campos a la vez para mostrar todos los errores juntos. */
     fun registrarDispositivo() {
         val state = _uiState.value
@@ -149,12 +155,14 @@ class TioTecViewModel(
         agregarDispositivo(
             nombre = state.nombreDispositivoInput,
             tipo = state.tipoDispositivoSeleccionado,
-            sistemaOperativo = state.sistemaOperativoInput
+            sistemaOperativo = state.sistemaOperativoInput,
+            fotoUri = state.fotoDispositivoInput
         )
         _uiState.update {
             it.copy(
                 nombreDispositivoInput = "",
                 sistemaOperativoInput = "",
+                fotoDispositivoInput = null,
                 errorNombreDispositivo = null,
                 errorSistemaOperativo = null
             )
