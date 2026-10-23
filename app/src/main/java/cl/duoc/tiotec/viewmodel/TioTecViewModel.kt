@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class TioTecUiState(
     val usuario: Usuario = Usuario(),
@@ -38,7 +41,12 @@ data class TioTecUiState(
     val errorNombreDispositivo: String? = null,
     val tipoDispositivoSeleccionado: TipoDispositivo = TipoDispositivo.SMARTPHONE,
     val sistemaOperativoInput: String = "",
-    val errorSistemaOperativo: String? = null
+    val errorSistemaOperativo: String? = null,
+
+    // Cuestionario (RF-03 / RF-04)
+    val preguntasSinResponder: Set<Int> = emptySet(),
+    val resultadoReciente: EvaluacionSeguridad? = null,
+    val accionesGeneradas: List<AccionChecklist> = emptyList()
 )
 
 class TioTecViewModel(
@@ -173,6 +181,8 @@ class TioTecViewModel(
         _uiState.update { state ->
             state.copy(
                 respuestasActuales = state.respuestasActuales + (preguntaId to puntaje),
+                // al responder, esa pregunta deja de estar marcada como pendiente
+                preguntasSinResponder = state.preguntasSinResponder - preguntaId,
                 errorFormulario = null
             )
         }
@@ -180,8 +190,17 @@ class TioTecViewModel(
 
     fun finalizarEvaluacion(): Boolean {
         val state = _uiState.value
-        if (state.respuestasActuales.size < state.preguntas.size) {
-            _uiState.update { it.copy(errorFormulario = "Debes responder las ${state.preguntas.size} preguntas antes de finalizar") }
+        val faltantes = ValidadorFormularios.preguntasSinResponder(
+            idsPreguntas = state.preguntas.map { it.id },
+            respuestas = state.respuestasActuales
+        )
+        if (faltantes.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    preguntasSinResponder = faltantes,
+                    errorFormulario = "Te faltan ${faltantes.size} pregunta(s) por responder"
+                )
+            }
             return false
         }
 
@@ -198,7 +217,7 @@ class TioTecViewModel(
 
         val nuevaEval = EvaluacionSeguridad(
             id = "eval_${System.currentTimeMillis()}",
-            fecha = "Hoy",
+            fecha = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date()),
             puntajeTotal = puntajeTotal,
             puntajeMaximo = puntajeMaximo,
             nivelRiesgo = nivelRiesgo,
@@ -231,11 +250,19 @@ class TioTecViewModel(
                 historial = listOf(nuevaEval) + it.historial,
                 checklist = (nuevasAcciones + it.checklist).distinctBy { acc -> acc.titulo },
                 respuestasActuales = emptyMap(),
+                preguntasSinResponder = emptySet(),
+                resultadoReciente = nuevaEval,
+                accionesGeneradas = nuevasAcciones,
                 errorFormulario = null,
                 mensajeExito = "Evaluación completada: ${nivelRiesgo.etiqueta}"
             )
         }
         return true
+    }
+
+    /** Vuelve del resultado al inicio del cuestionario para una nueva evaluación. */
+    fun cerrarResultado() {
+        _uiState.update { it.copy(resultadoReciente = null, accionesGeneradas = emptyList()) }
     }
 
     fun alternarEstadoAccion(accionId: String) {
