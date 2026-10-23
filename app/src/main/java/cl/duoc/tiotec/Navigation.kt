@@ -25,11 +25,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.ui.main.MainScreenContent
+import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
 import cl.duoc.tiotec.viewmodel.TioTecViewModel
 
@@ -67,7 +72,17 @@ fun MainNavigation(
 
     val accionesPendientes = state.checklist.count { !it.completada }
 
+    // Mensajes de éxito (perfil guardado, dispositivo registrado...) como Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.mensajeExito) {
+        state.mensajeExito?.let { mensaje ->
+            snackbarHostState.showSnackbar(mensaje)
+            viewModel.limpiarMensajes()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -155,8 +170,15 @@ fun MainNavigation(
                     )
                 }
                 SeccionNavegacion.PERFIL -> {
-                    PantallaSeccionPerfil(
-                        state = state
+                    PerfilScreen(
+                        state = state,
+                        onNombrePerfilChange = viewModel::onNombrePerfilChange,
+                        onNivelExperienciaChange = viewModel::onNivelExperienciaChange,
+                        onGuardarPerfil = viewModel::guardarPerfil,
+                        onNombreDispositivoChange = viewModel::onNombreDispositivoChange,
+                        onTipoDispositivoChange = viewModel::onTipoDispositivoChange,
+                        onSistemaOperativoChange = viewModel::onSistemaOperativoChange,
+                        onRegistrarDispositivo = viewModel::registrarDispositivo
                     )
                 }
             }
@@ -280,51 +302,6 @@ private fun PantallaSeccionEvaluar(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PantallaSeccionPerfil(
-    state: TioTecUiState
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Perfil Ficticio y Equipos",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = "Usuario actual: ${state.usuario.nombre} (${state.usuario.nivelExperiencia.etiqueta})",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Inventario de prueba:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                Text(
-                    text = "Total de dispositivos registrados: ${state.dispositivos.size}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }
