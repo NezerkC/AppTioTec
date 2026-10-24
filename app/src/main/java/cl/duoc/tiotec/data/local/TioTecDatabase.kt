@@ -13,7 +13,8 @@ import androidx.room.RoomDatabase
     entities = [
         DispositivoEntity::class,
         AccionChecklistEntity::class,
-        EvaluacionEntity::class
+        EvaluacionEntity::class,
+        SolicitudAsistenciaEntity::class
     ],
     version = 1,
     exportSchema = false

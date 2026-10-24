@@ -8,7 +8,10 @@ import cl.duoc.tiotec.model.EvaluacionSeguridad
 import cl.duoc.tiotec.model.NivelExperiencia
 import cl.duoc.tiotec.model.NivelRiesgo
 import cl.duoc.tiotec.model.PreguntaEvaluacion
+import cl.duoc.tiotec.model.CategoriaSeguridad
+import cl.duoc.tiotec.model.EstadoAsistencia
 import cl.duoc.tiotec.model.PrioridadAccion
+import cl.duoc.tiotec.model.SolicitudAsistencia
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
 import cl.duoc.tiotec.repository.PreferenciasDataStore
@@ -50,7 +53,13 @@ data class TioTecUiState(
     // Cuestionario (RF-03 / RF-04)
     val preguntasSinResponder: Set<Int> = emptySet(),
     val resultadoReciente: EvaluacionSeguridad? = null,
-    val accionesGeneradas: List<AccionChecklist> = emptyList()
+    val accionesGeneradas: List<AccionChecklist> = emptyList(),
+
+    // Solicitudes de Asistencia Simulada (Issue #12)
+    val solicitudesAsistencia: List<SolicitudAsistencia> = emptyList(),
+    val categoriaAsistenciaSeleccionada: CategoriaSeguridad = CategoriaSeguridad.RESPALDOS,
+    val descripcionAsistenciaInput: String = "",
+    val errorDescripcionAsistencia: String? = null
 )
 
 class TioTecViewModel(
@@ -65,7 +74,8 @@ class TioTecViewModel(
             preguntas = repository.obtenerPreguntasEvaluacion(),
             checklist = repository.obtenerChecklistInicial(),
             historial = repository.obtenerHistorialInicial(),
-            ultimaEvaluacion = repository.obtenerHistorialInicial().firstOrNull()
+            ultimaEvaluacion = repository.obtenerHistorialInicial().firstOrNull(),
+            solicitudesAsistencia = repository.obtenerSolicitudesAsistenciaIniciales()
         )
     )
     val uiState: StateFlow<TioTecUiState> = _uiState.asStateFlow()
@@ -124,6 +134,15 @@ class TioTecViewModel(
                                 ultimaEvaluacion = lista.firstOrNull()
                             )
                         }
+                    }
+                }
+            }
+        }
+        repository.observarSolicitudesAsistencia()?.let { flow ->
+            viewModelScope.launch {
+                flow.collect { lista ->
+                    if (lista.isNotEmpty()) {
+                        _uiState.update { it.copy(solicitudesAsistencia = lista) }
                     }
                 }
             }
@@ -365,5 +384,68 @@ class TioTecViewModel(
 
     fun limpiarMensajes() {
         _uiState.update { it.copy(errorFormulario = null, mensajeExito = null) }
+    }
+
+
+    // ---------------------------------------------------------------------
+    // Solicitudes de Asistencia Simulada (Issue #12 · Caso TíoTec 3.2)
+    // ---------------------------------------------------------------------
+
+    fun onCategoriaAsistenciaChange(categoria: CategoriaSeguridad) {
+        _uiState.update { it.copy(categoriaAsistenciaSeleccionada = categoria) }
+    }
+
+    fun onDescripcionAsistenciaChange(texto: String) {
+        _uiState.update {
+            it.copy(
+                descripcionAsistenciaInput = texto,
+                errorDescripcionAsistencia = ValidadorFormularios.validarDescripcionAsistencia(texto)
+            )
+        }
+    }
+
+    fun registrarSolicitudAsistencia() {
+        val state = _uiState.value
+        val error = ValidadorFormularios.validarDescripcionAsistencia(state.descripcionAsistenciaInput)
+        if (error != null) {
+            _uiState.update { it.copy(errorDescripcionAsistencia = error) }
+            return
+        }
+
+        val nueva = SolicitudAsistencia(
+            id = "asist_${System.currentTimeMillis()}",
+            categoria = state.categoriaAsistenciaSeleccionada,
+            descripcion = state.descripcionAsistenciaInput.trim(),
+            estado = EstadoAsistencia.PENDIENTE,
+            fecha = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+        )
+
+        _uiState.update {
+            it.copy(
+                solicitudesAsistencia = listOf(nueva) + it.solicitudesAsistencia,
+                descripcionAsistenciaInput = "",
+                errorDescripcionAsistencia = null,
+                mensajeExito = "Solicitud de asistencia enviada correctamente"
+            )
+        }
+
+        viewModelScope.launch {
+            repository.guardarSolicitudAsistencia(nueva)
+        }
+    }
+
+    fun alternarEstadoSolicitudAsistencia(id: String) {
+        val actual = _uiState.value.solicitudesAsistencia.find { it.id == id } ?: return
+        val nuevoEstado = if (actual.estado == EstadoAsistencia.PENDIENTE) EstadoAsistencia.ATENDIDA else EstadoAsistencia.PENDIENTE
+        _uiState.update { state ->
+            state.copy(
+                solicitudesAsistencia = state.solicitudesAsistencia.map {
+                    if (it.id == id) it.copy(estado = nuevoEstado) else it
+                }
+            )
+        }
+        viewModelScope.launch {
+            repository.alternarEstadoAsistencia(id, nuevoEstado == EstadoAsistencia.ATENDIDA)
+        }
     }
 }

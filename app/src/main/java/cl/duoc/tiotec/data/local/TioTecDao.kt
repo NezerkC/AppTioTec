@@ -71,4 +71,17 @@ interface TioTecDao {
 
     @Query("SELECT * FROM evaluaciones ORDER BY id DESC LIMIT 1")
     fun obtenerUltimaEvaluacion(): Flow<EvaluacionEntity?>
+
+    // -------------------------------------------------------------------------
+    // Solicitudes de Asistencia Simulada (Issue #12 · Caso TíoTec 3.2)
+    // -------------------------------------------------------------------------
+
+    @Query("SELECT * FROM solicitudes_asistencia ORDER BY id DESC")
+    fun obtenerSolicitudesAsistencia(): Flow<List<SolicitudAsistenciaEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertarSolicitudAsistencia(solicitud: SolicitudAsistenciaEntity)
+
+    @Query("UPDATE solicitudes_asistencia SET estado = :estado WHERE id = :id")
+    suspend fun actualizarEstadoAsistencia(id: String, estado: String)
 }
