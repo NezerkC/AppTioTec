@@ -54,13 +54,18 @@ import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
 import cl.duoc.tiotec.theme.AppTioTecTheme
 import cl.duoc.tiotec.viewmodel.TioTecUiState
+import cl.duoc.tiotec.repository.PreferenciasDataStore
 import cl.duoc.tiotec.viewmodel.TioTecViewModel
 
 @Composable
 fun MainScreen(
     onItemClick: (NavKey) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: TioTecViewModel = viewModel { TioTecViewModel() }
+    viewModel: TioTecViewModel = viewModel {
+        val app = this[androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
+        if (app != null) TioTecViewModel(preferenciasDataStore = PreferenciasDataStore(app))
+        else TioTecViewModel()
+    }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
