@@ -1,6 +1,7 @@
 package cl.duoc.tiotec.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import cl.duoc.tiotec.model.AccionChecklist
 import cl.duoc.tiotec.model.Dispositivo
 import cl.duoc.tiotec.model.EvaluacionSeguridad
@@ -10,12 +11,14 @@ import cl.duoc.tiotec.model.PreguntaEvaluacion
 import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
+import cl.duoc.tiotec.repository.PreferenciasDataStore
 import cl.duoc.tiotec.repository.TioTecRepository
 import cl.duoc.tiotec.validation.ValidadorFormularios
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,7 +54,8 @@ data class TioTecUiState(
 )
 
 class TioTecViewModel(
-    private val repository: TioTecRepository = TioTecRepository()
+    private val repository: TioTecRepository = TioTecRepository(),
+    private val preferenciasDataStore: PreferenciasDataStore? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -65,6 +69,32 @@ class TioTecViewModel(
         )
     )
     val uiState: StateFlow<TioTecUiState> = _uiState.asStateFlow()
+
+    init {
+        preferenciasDataStore?.let { dataStore ->
+            viewModelScope.launch {
+                dataStore.aliasUsuarioFlow.collect { alias ->
+                    if (!alias.isNullOrBlank()) {
+                        _uiState.update { current ->
+                            current.copy(usuario = current.usuario.copy(nombre = alias))
+                        }
+                    }
+                }
+            }
+            viewModelScope.launch {
+                dataStore.nivelExperienciaFlow.collect { nivel ->
+                    if (!nivel.isNullOrBlank()) {
+                        val exp = runCatching { NivelExperiencia.valueOf(nivel) }.getOrNull()
+                        if (exp != null) {
+                            _uiState.update { current ->
+                                current.copy(usuario = current.usuario.copy(nivelExperiencia = exp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // ---------------------------------------------------------------------
     // Formulario de perfil (RF-01)
@@ -91,18 +121,31 @@ class TioTecViewModel(
             _uiState.update { it.copy(errorNombrePerfil = error, mensajeExito = null) }
             return
         }
+        val nuevoNombre = state.nombrePerfilInput.trim()
+        val nuevoNivel = state.nivelExperienciaSeleccionado
         _uiState.update {
             it.copy(
                 usuario = it.usuario.copy(
-                    nombre = it.nombrePerfilInput.trim(),
-                    nivelExperiencia = it.nivelExperienciaSeleccionado
+                    nombre = nuevoNombre,
+                    nivelExperiencia = nuevoNivel
                 ),
                 nombrePerfilInput = "",
                 errorNombrePerfil = null,
                 mensajeExito = "Perfil actualizado correctamente"
             )
         }
+        preferenciasDataStore?.let { dataStore ->
+            viewModelScope.launch {
+                dataStore.guardarPerfil(
+                    alias = nuevoNombre,
+                    nivel = nuevoNivel.name
+                )
+            }
+        }
     }
+
+    /** Alias para compatibilidad con guías y scripts de avance. */
+    fun actualizarPerfil() = guardarPerfil()
 
     // ---------------------------------------------------------------------
     // Formulario de dispositivo (RF-02)
@@ -136,6 +179,9 @@ class TioTecViewModel(
     }
 
     /** Valida los dos campos a la vez para mostrar todos los errores juntos. */
+    /** Alias para compatibilidad con guías y scripts de avance. */
+    fun agregarDispositivo() = registrarDispositivo()
+
     fun registrarDispositivo() {
         val state = _uiState.value
         val errorNombre = ValidadorFormularios.validarNombreDispositivo(state.nombreDispositivoInput)

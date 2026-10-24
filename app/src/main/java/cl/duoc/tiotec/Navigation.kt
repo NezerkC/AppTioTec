@@ -52,6 +52,7 @@ import cl.duoc.tiotec.ui.historial.HistorialScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
 import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
+import cl.duoc.tiotec.repository.PreferenciasDataStore
 import cl.duoc.tiotec.viewmodel.TioTecViewModel
 
 enum class SeccionNavegacion(
@@ -69,7 +70,11 @@ enum class SeccionNavegacion(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainNavigation(
-    viewModel: TioTecViewModel = viewModel { TioTecViewModel() }
+    viewModel: TioTecViewModel = viewModel {
+        val app = this[androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
+        if (app != null) TioTecViewModel(preferenciasDataStore = PreferenciasDataStore(app))
+        else TioTecViewModel()
+    }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var seccionActual by rememberSaveable { mutableStateOf(SeccionNavegacion.INICIO) }
