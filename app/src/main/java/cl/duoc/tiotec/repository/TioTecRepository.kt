@@ -3,16 +3,19 @@ package cl.duoc.tiotec.repository
 import cl.duoc.tiotec.data.local.AccionChecklistEntity
 import cl.duoc.tiotec.data.local.DispositivoEntity
 import cl.duoc.tiotec.data.local.EvaluacionEntity
+import cl.duoc.tiotec.data.local.SolicitudAsistenciaEntity
 import cl.duoc.tiotec.data.local.TioTecDao
 import cl.duoc.tiotec.model.AccionChecklist
 import cl.duoc.tiotec.model.CategoriaSeguridad
 import cl.duoc.tiotec.model.Dispositivo
+import cl.duoc.tiotec.model.EstadoAsistencia
 import cl.duoc.tiotec.model.EvaluacionSeguridad
 import cl.duoc.tiotec.model.NivelExperiencia
 import cl.duoc.tiotec.model.NivelRiesgo
 import cl.duoc.tiotec.model.OpcionRespuesta
 import cl.duoc.tiotec.model.PreguntaEvaluacion
 import cl.duoc.tiotec.model.PrioridadAccion
+import cl.duoc.tiotec.model.SolicitudAsistencia
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
 import kotlinx.coroutines.flow.Flow
@@ -75,6 +78,35 @@ class TioTecRepository(
     suspend fun guardarEvaluacion(evaluacion: EvaluacionSeguridad) {
         dao?.insertarEvaluacion(EvaluacionEntity.fromDomain(evaluacion))
     }
+
+    // -------------------------------------------------------------------------
+    // Solicitudes de Asistencia Simulada (Issue #12 · Caso TíoTec 3.2)
+    // -------------------------------------------------------------------------
+
+    fun observarSolicitudesAsistencia(): Flow<List<SolicitudAsistencia>>? {
+        return dao?.obtenerSolicitudesAsistencia()?.map { lista ->
+            lista.map { it.toDomain() }
+        }
+    }
+
+    suspend fun guardarSolicitudAsistencia(solicitud: SolicitudAsistencia) {
+        dao?.insertarSolicitudAsistencia(SolicitudAsistenciaEntity.fromDomain(solicitud))
+    }
+
+    suspend fun alternarEstadoAsistencia(id: String, atendida: Boolean) {
+        val nuevoEstado = if (atendida) EstadoAsistencia.ATENDIDA.name else EstadoAsistencia.PENDIENTE.name
+        dao?.actualizarEstadoAsistencia(id, nuevoEstado)
+    }
+
+    fun obtenerSolicitudesAsistenciaIniciales(): List<SolicitudAsistencia> = listOf(
+        SolicitudAsistencia(
+            id = "asist_01",
+            categoria = CategoriaSeguridad.AUTENTICACION,
+            descripcion = "Dudas sobre cómo configurar la app autenticadora en mi cuenta de correo",
+            estado = EstadoAsistencia.PENDIENTE,
+            fecha = "12/10/2026 14:30"
+        )
+    )
 
     // -------------------------------------------------------------------------
     // Semillas / Datos Iniciales
