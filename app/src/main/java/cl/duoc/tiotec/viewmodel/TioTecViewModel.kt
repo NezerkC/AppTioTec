@@ -94,6 +94,40 @@ class TioTecViewModel(
                 }
             }
         }
+
+        // Observación reactiva desde Room (Actividad 2.5)
+        repository.observarDispositivos()?.let { flow ->
+            viewModelScope.launch {
+                flow.collect { lista ->
+                    if (lista.isNotEmpty()) {
+                        _uiState.update { it.copy(dispositivos = lista) }
+                    }
+                }
+            }
+        }
+        repository.observarChecklist()?.let { flow ->
+            viewModelScope.launch {
+                flow.collect { lista ->
+                    if (lista.isNotEmpty()) {
+                        _uiState.update { it.copy(checklist = lista) }
+                    }
+                }
+            }
+        }
+        repository.observarHistorial()?.let { flow ->
+            viewModelScope.launch {
+                flow.collect { lista ->
+                    if (lista.isNotEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                historial = lista,
+                                ultimaEvaluacion = lista.firstOrNull()
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
