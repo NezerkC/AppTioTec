@@ -24,3 +24,15 @@
   - `docs(<scope>): <mensaje descriptivo en español>`
   - `build(<scope>): <mensaje descriptivo en español>` (ej: `build(deps): agregar dependencia datastore preferences`)
   - `chore(<scope>): <mensaje descriptivo en español>`
+
+## 4. Pushes Atómicos e Incrementales
+- **Prohibido acumular múltiples tareas o issues para un mega-push**:
+  - Cada rama de feature (`feature/<id-issue>-...`) debe empujarse al repositorio remoto de forma independiente:
+    ```bash
+    git push origin feature/<id-issue>-<nombre>
+    ```
+  - Una vez validado el merge a `main`, el avance de esa issue específica se publica inmediatamente antes de comenzar a trabajar en la siguiente issue:
+    ```bash
+    git push origin main
+    ```
+- Esto garantiza que cada ejecución de GitHub Actions, cada cierre automático de issue y cada actualización en GitHub Projects refleje fielmente el avance paso a paso del ciclo de vida del software.
