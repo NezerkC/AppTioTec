@@ -61,6 +61,8 @@ import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
 import cl.duoc.tiotec.theme.AppTioTecTheme
 import cl.duoc.tiotec.viewmodel.TioTecUiState
+import cl.duoc.tiotec.data.local.TioTecDatabase
+import cl.duoc.tiotec.repository.TioTecRepository
 import cl.duoc.tiotec.repository.PreferenciasDataStore
 import cl.duoc.tiotec.viewmodel.TioTecViewModel
 
@@ -70,8 +72,14 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: TioTecViewModel = viewModel {
         val app = this[androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
-        if (app != null) TioTecViewModel(preferenciasDataStore = PreferenciasDataStore(app))
-        else TioTecViewModel()
+        if (app != null) {
+            val db = TioTecDatabase.getInstance(app)
+            val repo = TioTecRepository(dao = db.tioTecDao())
+            val ds = PreferenciasDataStore(app)
+            TioTecViewModel(repository = repo, preferenciasDataStore = ds)
+        } else {
+            TioTecViewModel()
+        }
     }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
