@@ -11,6 +11,7 @@ package cl.duoc.tiotec.validation
 object ValidadorFormularios {
 
     const val MIN_CARACTERES_NOMBRE = 3
+    const val MIN_CARACTERES_DESCRIPCION_ASISTENCIA = 10
 
     fun validarNombrePerfil(nombre: String): String? {
         if (nombre.trim().length < MIN_CARACTERES_NOMBRE) {
@@ -29,6 +30,13 @@ object ValidadorFormularios {
     fun validarSistemaOperativo(so: String): String? {
         if (so.isBlank()) {
             return "Este campo no puede estar vacío"
+        }
+        return null
+    }
+
+    fun validarDescripcionAsistencia(texto: String): String? {
+        if (texto.trim().length < MIN_CARACTERES_DESCRIPCION_ASISTENCIA) {
+            return "La descripción debe tener al menos $MIN_CARACTERES_DESCRIPCION_ASISTENCIA caracteres"
         }
         return null
     }
