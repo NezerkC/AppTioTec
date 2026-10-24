@@ -85,4 +85,8 @@ dependencies {
 
   // DataStore Preferences
   implementation(libs.androidx.datastore.preferences)
+
+  // Room Database SQLite
+  implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.room.ktx)
 }
