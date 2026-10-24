@@ -1,38 +1,49 @@
-# Reglas de Desarrollo y Control de Versiones (Git Workflow)
+# Estándar de Desarrollo: Git y GitHub CLI (`gh`)
 
-## 1. Estrategia de Ramas (Branching)
-- **Prohibido trabajar directo en `main`**: Todo trabajo asociado a una issue debe realizarse en una rama dedicada con nomenclatura estándar:
+## 1. Autenticación y Configuración de Herramientas
+- **Herramienta principal para GitHub**: Se prioriza el uso de GitHub CLI (`gh`) para interactuar con la plataforma (issues, PRs, proyectos y autenticación).
+- **Helper de credenciales Git**: La autenticación de `git` se enlaza con `gh`:
+  ```bash
+  gh auth login -w -p https
+  gh auth setup-git
+  ```
+
+## 2. Estrategia de Ramas (Branching)
+- **Prohibido trabajar directo en `main`**: Todo trabajo asociado a una issue debe realizarse en una rama dedicada:
   - `feature/<id-issue>-<descripcion-corta>` (ej: `feature/issue-8-datastore-animaciones`)
   - `fix/<id-issue>-<descripcion-corta>`
-- La rama se integra a `main` únicamente tras validación local de compilación/tests y revisión.
+- Las ramas se integran a `main` únicamente tras validación local de compilación y pruebas (`assembleDebug`, `testDebugUnitTest`).
 
-## 2. Backlog Explícito por Issue
+## 3. Backlog Técnico por Issue
 - Antes de iniciar la implementación de una issue:
-  1. Analizar los criterios de aceptación y requerimientos oficiales.
-  2. Desglosar las acciones en un backlog/checklist técnico numerado.
-  3. Actualizar el estado de cada ítem a medida que se completa.
+  1. Inspeccionar la issue con `gh issue view <id>`.
+  2. Desglosar las tareas en un backlog numerado.
+  3. Validar los criterios de aceptación al completar cada paso.
 
-## 3. Commits Atómicos
-- Cada commit debe representar un cambio único, coherente y autocontenido.
-- Todo commit debe compilar y no romper el estado de la aplicación.
-- **Idioma de los commits: 100% en español** (descripción clara y en tiempo presente/imperativo).
-- Formato estricto de Conventional Commits (sin menciones de autoría de IA):
-  - `feat(<scope>): <mensaje descriptivo en español>` (ej: `feat(data): implementar PreferenciasDataStore`)
-  - `fix(<scope>): <mensaje descriptivo en español>` (ej: `fix(ui): corregir contraste en el semáforo`)
+## 4. Commits Atómicos (100% en Español)
+- Cada commit representa un cambio único, funcional y coherente que compila.
+- Formato estricto Conventional Commits en español:
+  - `feat(<scope>): <mensaje descriptivo en español>`
+  - `fix(<scope>): <mensaje descriptivo en español>`
   - `refactor(<scope>): <mensaje descriptivo en español>`
   - `test(<scope>): <mensaje descriptivo en español>`
   - `docs(<scope>): <mensaje descriptivo en español>`
-  - `build(<scope>): <mensaje descriptivo en español>` (ej: `build(deps): agregar dependencia datastore preferences`)
+  - `build(<scope>): <mensaje descriptivo en español>`
   - `chore(<scope>): <mensaje descriptivo en español>`
+- Sin menciones de autoría de IA ni "Co-Authored-By".
 
-## 4. Pushes Atómicos e Incrementales
-- **Prohibido acumular múltiples tareas o issues para un mega-push**:
-  - Cada rama de feature (`feature/<id-issue>-...`) debe empujarse al repositorio remoto de forma independiente:
+## 5. Pushes y Pull Requests Atómicos
+- **Prohibido acumular múltiples tareas para un mega-push**:
+  - Cada rama de feature se sube de forma individual:
     ```bash
-    git push origin feature/<id-issue>-<nombre>
+    git push origin <nombre-de-rama>
     ```
-  - Una vez validado el merge a `main`, el avance de esa issue específica se publica inmediatamente antes de comenzar a trabajar en la siguiente issue:
+  - Se puede crear y fusionar el Pull Request vía `gh`:
+    ```bash
+    gh pr create --fill
+    gh pr merge --merge --delete-branch
+    ```
+  - Una vez validado en `main`, el avance se sincroniza inmediatamente:
     ```bash
     git push origin main
     ```
-- Esto garantiza que cada ejecución de GitHub Actions, cada cierre automático de issue y cada actualización en GitHub Projects refleje fielmente el avance paso a paso del ciclo de vida del software.
