@@ -50,6 +50,8 @@ import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.ui.evaluacion.EvaluacionScreen
 import cl.duoc.tiotec.ui.historial.HistorialScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
+import androidx.compose.material.icons.filled.Build
+import cl.duoc.tiotec.ui.asistencia.AsistenciaScreen
 import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
 import cl.duoc.tiotec.data.local.TioTecDatabase
@@ -66,7 +68,8 @@ enum class SeccionNavegacion(
     EVALUAR("Evaluar", Icons.Default.Info, "Diagnóstico de 4 Pilares"),
     CHECKLIST("Checklist", Icons.Default.Check, "Plan de Acciones"),
     HISTORIAL("Historial", Icons.Default.DateRange, "Evaluaciones Anteriores"),
-    PERFIL("Perfil", Icons.Default.Person, "Perfil y Dispositivos")
+    PERFIL("Perfil", Icons.Default.Person, "Perfil y Dispositivos"),
+    ASISTENCIA("Asistencia", Icons.Default.Build, "Asistencia Técnica Simulada")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -177,7 +180,7 @@ fun MainNavigation(
                 SeccionNavegacion.EVALUAR -> {
                     EvaluacionScreen(
                         state = state,
-                        onSeleccionarRespuesta = viewModel::seleccionarRespuesta,
+                        onSeleccionarRespuesta = { id, puntaje -> viewModel.seleccionarRespuesta(id, puntaje) },
                         onFinalizar = { viewModel.finalizarEvaluacion() },
                         onVerChecklist = {
                             viewModel.cerrarResultado()
@@ -200,12 +203,21 @@ fun MainNavigation(
                         state = state,
                         onNombrePerfilChange = viewModel::onNombrePerfilChange,
                         onNivelExperienciaChange = viewModel::onNivelExperienciaChange,
-                        onGuardarPerfil = viewModel::guardarPerfil,
+                        onGuardarPerfil = { viewModel.actualizarPerfil() },
                         onNombreDispositivoChange = viewModel::onNombreDispositivoChange,
                         onTipoDispositivoChange = viewModel::onTipoDispositivoChange,
                         onSistemaOperativoChange = viewModel::onSistemaOperativoChange,
                         onFotoDispositivoChange = viewModel::onFotoDispositivoChange,
-                        onRegistrarDispositivo = viewModel::registrarDispositivo
+                        onRegistrarDispositivo = { viewModel.agregarDispositivo() }
+                    )
+                }
+                SeccionNavegacion.ASISTENCIA -> {
+                    AsistenciaScreen(
+                        state = state,
+                        onCategoriaChange = viewModel::onCategoriaAsistenciaChange,
+                        onDescripcionChange = viewModel::onDescripcionAsistenciaChange,
+                        onEnviarSolicitud = viewModel::registrarSolicitudAsistencia,
+                        onToggleEstado = viewModel::alternarEstadoSolicitudAsistencia
                     )
                 }
             }
