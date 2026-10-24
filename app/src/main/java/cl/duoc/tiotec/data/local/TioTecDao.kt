@@ -23,16 +23,16 @@ interface TioTecDao {
     fun obtenerTodosLosDispositivos(): Flow<List<DispositivoEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarDispositivo(dispositivo: DispositivoEntity)
+    suspend fun insertarDispositivo(dispositivo: DispositivoEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarDispositivos(dispositivos: List<DispositivoEntity>)
+    suspend fun insertarDispositivos(dispositivos: List<DispositivoEntity>): List<Long>
 
     @Delete
-    suspend fun eliminarDispositivo(dispositivo: DispositivoEntity)
+    suspend fun eliminarDispositivo(dispositivo: DispositivoEntity): Int
 
     @Query("DELETE FROM dispositivos WHERE id = :id")
-    suspend fun eliminarDispositivoPorId(id: String)
+    suspend fun eliminarDispositivoPorId(id: String): Int
 
     // -------------------------------------------------------------------------
     // Checklist de Acciones Preventivas (RF-05 / RN-02)
@@ -42,19 +42,19 @@ interface TioTecDao {
     fun obtenerChecklist(): Flow<List<AccionChecklistEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarAccion(accion: AccionChecklistEntity)
+    suspend fun insertarAccion(accion: AccionChecklistEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarAcciones(acciones: List<AccionChecklistEntity>)
+    suspend fun insertarAcciones(acciones: List<AccionChecklistEntity>): List<Long>
 
     @Update
-    suspend fun actualizarAccion(accion: AccionChecklistEntity)
+    suspend fun actualizarAccion(accion: AccionChecklistEntity): Int
 
     @Query("UPDATE checklist_acciones SET completada = :completada WHERE id = :id")
-    suspend fun alternarEstadoAccion(id: String, completada: Boolean)
+    suspend fun alternarEstadoAccion(id: String, completada: Boolean): Int
 
     @Delete
-    suspend fun eliminarAccion(accion: AccionChecklistEntity)
+    suspend fun eliminarAccion(accion: AccionChecklistEntity): Int
 
     // -------------------------------------------------------------------------
     // Historial de Evaluaciones Preventivas (RF-06)
@@ -64,10 +64,10 @@ interface TioTecDao {
     fun obtenerHistorialEvaluaciones(): Flow<List<EvaluacionEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarEvaluacion(evaluacion: EvaluacionEntity)
+    suspend fun insertarEvaluacion(evaluacion: EvaluacionEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarEvaluaciones(evaluaciones: List<EvaluacionEntity>)
+    suspend fun insertarEvaluaciones(evaluaciones: List<EvaluacionEntity>): List<Long>
 
     @Query("SELECT * FROM evaluaciones ORDER BY id DESC LIMIT 1")
     fun obtenerUltimaEvaluacion(): Flow<EvaluacionEntity?>
@@ -80,8 +80,8 @@ interface TioTecDao {
     fun obtenerSolicitudesAsistencia(): Flow<List<SolicitudAsistenciaEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarSolicitudAsistencia(solicitud: SolicitudAsistenciaEntity)
+    suspend fun insertarSolicitudAsistencia(solicitud: SolicitudAsistenciaEntity): Long
 
     @Query("UPDATE solicitudes_asistencia SET estado = :estado WHERE id = :id")
-    suspend fun actualizarEstadoAsistencia(id: String, estado: String)
+    suspend fun actualizarEstadoAsistencia(id: String, estado: String): Int
 }
