@@ -15,9 +15,12 @@
 ## 3. Commits Atómicos
 - Cada commit debe representar un cambio único, coherente y autocontenido.
 - Todo commit debe compilar y no romper el estado de la aplicación.
+- **Idioma de los commits: 100% en español** (descripción clara y en tiempo presente/imperativo).
 - Formato estricto de Conventional Commits (sin menciones de autoría de IA):
-  - `feat(<scope>): <mensaje>`
-  - `fix(<scope>): <mensaje>`
-  - `refactor(<scope>): <mensaje>`
-  - `test(<scope>): <mensaje>`
-  - `docs(<scope>): <mensaje>`
+  - `feat(<scope>): <mensaje descriptivo en español>` (ej: `feat(data): implementar PreferenciasDataStore`)
+  - `fix(<scope>): <mensaje descriptivo en español>` (ej: `fix(ui): corregir contraste en el semáforo`)
+  - `refactor(<scope>): <mensaje descriptivo en español>`
+  - `test(<scope>): <mensaje descriptivo en español>`
+  - `docs(<scope>): <mensaje descriptivo en español>`
+  - `build(<scope>): <mensaje descriptivo en español>` (ej: `build(deps): agregar dependencia datastore preferences`)
+  - `chore(<scope>): <mensaje descriptivo en español>`
