@@ -1,5 +1,12 @@
 package cl.duoc.tiotec.ui.main
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -96,6 +103,54 @@ internal fun MainScreenContent(
     ) {
         item {
             HeaderUsuario(usuario = state.usuario, onPerfilClick = onPerfilClick)
+        }
+
+        item {
+            AnimatedVisibility(
+                visible = state.mensajeExito != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                state.mensajeExito?.let { mensaje ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Text(
+                            text = mensaje,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            AnimatedVisibility(
+                visible = state.errorFormulario != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                state.errorFormulario?.let { error ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = error,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
         }
 
         item {
@@ -240,23 +295,37 @@ private fun SemaforoRiesgoCard(
 ) {
     val nivel = evaluacion?.nivelRiesgo ?: NivelRiesgo.MEDIO
 
-    val (cardColor, contentColor, badgeColor) = when (nivel) {
-        NivelRiesgo.BAJO -> Triple(
-            Color(0xFFE8F5E9),
-            Color(0xFF1B5E20),
-            Color(0xFF2E7D32)
-        )
-        NivelRiesgo.MEDIO -> Triple(
-            Color(0xFFFFF8E1),
-            Color(0xFFE65100),
-            Color(0xFFF57C00)
-        )
-        NivelRiesgo.ALTO -> Triple(
-            Color(0xFFFFEBEE),
-            Color(0xFFB71C1C),
-            Color(0xFFD32F2F)
-        )
+    val targetCardColor = when (nivel) {
+        NivelRiesgo.BAJO -> Color(0xFFE8F5E9)
+        NivelRiesgo.MEDIO -> Color(0xFFFFF8E1)
+        NivelRiesgo.ALTO -> Color(0xFFFFEBEE)
     }
+    val targetContentColor = when (nivel) {
+        NivelRiesgo.BAJO -> Color(0xFF1B5E20)
+        NivelRiesgo.MEDIO -> Color(0xFFE65100)
+        NivelRiesgo.ALTO -> Color(0xFFB71C1C)
+    }
+    val targetBadgeColor = when (nivel) {
+        NivelRiesgo.BAJO -> Color(0xFF2E7D32)
+        NivelRiesgo.MEDIO -> Color(0xFFF57C00)
+        NivelRiesgo.ALTO -> Color(0xFFD32F2F)
+    }
+
+    val cardColor by animateColorAsState(
+        targetValue = targetCardColor,
+        animationSpec = tween(durationMillis = 500),
+        label = "animatedCardColor"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = targetContentColor,
+        animationSpec = tween(durationMillis = 500),
+        label = "animatedContentColor"
+    )
+    val badgeColor by animateColorAsState(
+        targetValue = targetBadgeColor,
+        animationSpec = tween(durationMillis = 500),
+        label = "animatedBadgeColor"
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
