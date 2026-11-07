@@ -101,6 +101,7 @@ internal fun MainScreenContent(
     onEvaluarClick: () -> Unit = {},
     onChecklistClick: () -> Unit = {},
     onPerfilClick: () -> Unit = {},
+    onCuidadoClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -166,6 +167,57 @@ internal fun MainScreenContent(
                 evaluacion = state.ultimaEvaluacion,
                 onNuevaEvaluacion = onEvaluarClick
             )
+        }
+
+        item {
+            // Widget de Cuidado Tecnológico (Unidad 3: Hardware y Bienestar Digital)
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Salud del Dispositivo y Uso",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "BatteryManager · StatFs · UsageStats",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        FilledTonalButton(onClick = onCuidadoClick) {
+                            Text("Ver Cuidado")
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "🔋 Batería: ${state.diagnosticoHardware.nivelBateria}% (${state.diagnosticoHardware.temperaturaBateria}°C)",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "⏱️ Pantalla: ${state.metricasBienestar.tiempoTotalFormateado}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
 
         item {

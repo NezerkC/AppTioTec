@@ -50,8 +50,9 @@ import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.ui.evaluacion.EvaluacionScreen
 import cl.duoc.tiotec.ui.historial.HistorialScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Favorite
 import cl.duoc.tiotec.ui.asistencia.AsistenciaScreen
+import cl.duoc.tiotec.ui.cuidado.CuidadoTechScreen
 import cl.duoc.tiotec.ui.perfil.PerfilScreen
 import cl.duoc.tiotec.viewmodel.TioTecUiState
 import cl.duoc.tiotec.data.local.TioTecDatabase
@@ -65,6 +66,7 @@ enum class SeccionNavegacion(
     val subtitulo: String
 ) {
     INICIO("Inicio", Icons.Default.Home, "Dashboard de Seguridad"),
+    CUIDADO("Cuidado", Icons.Default.Favorite, "Salud de Hardware y Bienestar"),
     EVALUAR("Evaluar", Icons.Default.Info, "Diagnóstico de 4 Pilares"),
     CHECKLIST("Checklist", Icons.Default.Check, "Plan de Acciones"),
     HISTORIAL("Historial", Icons.Default.DateRange, "Evaluaciones Anteriores"),
@@ -174,7 +176,15 @@ fun MainNavigation(
                         onToggleAccion = { id -> viewModel.alternarEstadoAccion(id) },
                         onEvaluarClick = { seccionActual = SeccionNavegacion.EVALUAR },
                         onChecklistClick = { seccionActual = SeccionNavegacion.CHECKLIST },
-                        onPerfilClick = { seccionActual = SeccionNavegacion.PERFIL }
+                        onPerfilClick = { seccionActual = SeccionNavegacion.PERFIL },
+                        onCuidadoClick = { seccionActual = SeccionNavegacion.CUIDADO }
+                    )
+                }
+                SeccionNavegacion.CUIDADO -> {
+                    CuidadoTechScreen(
+                        state = state,
+                        onEscanear = { ctx -> viewModel.ejecutarEscaneoMantenimiento(ctx) },
+                        onGenerarAccionesChecklist = { viewModel.generarAccionesCuidadoEnChecklist() }
                     )
                 }
                 SeccionNavegacion.EVALUAR -> {
