@@ -3,24 +3,29 @@ package cl.duoc.tiotec.ui.main
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import cl.duoc.tiotec.theme.AppTioTecTheme
+import cl.duoc.tiotec.viewmodel.TioTecUiState
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-/** UI tests for [cl.duoc.tiotec.ui.main.MainScreen]. */
+/** Pruebas UI para [cl.duoc.tiotec.ui.main.MainScreenContent]. */
 class MainScreenTest {
 
   @get:Rule val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
   @Before
   fun setup() {
-    composeTestRule.setContent { MainScreen(FAKE_DATA) }
+    composeTestRule.setContent {
+      AppTioTecTheme {
+        MainScreenContent(state = TioTecUiState())
+      }
+    }
   }
 
   @Test
-  fun firstItem_exists() {
-    FAKE_DATA.forEach { composeTestRule.onNodeWithText("Hello $it!").assertExists() }
+  fun dashboardPrincipal_muestraResumenDeSaludYCuidado() {
+    composeTestRule.onNodeWithText("Salud del Dispositivo y Uso").assertExists()
+    composeTestRule.onNodeWithText("Ver Cuidado").assertExists()
   }
 }
-
-private val FAKE_DATA = listOf("Sample1", "Sample2", "Sample3")
