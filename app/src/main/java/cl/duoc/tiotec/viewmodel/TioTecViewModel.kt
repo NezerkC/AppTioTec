@@ -25,9 +25,11 @@ import kotlinx.coroutines.launch
 import android.content.Context
 import cl.duoc.tiotec.model.DiagnosticoHardware
 import cl.duoc.tiotec.model.MetricasBienestarDigital
+import cl.duoc.tiotec.model.TelemetriaSistema
 import cl.duoc.tiotec.nativo.BienestarDigitalHelper
 import cl.duoc.tiotec.nativo.ChequeoMantenimientoHelper
 import cl.duoc.tiotec.nativo.HardwareSaludHelper
+import cl.duoc.tiotec.nativo.TelemetriaSistemaHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,7 +71,15 @@ data class TioTecUiState(
 
     // Cuidado Tecnológico: Hardware / Batería / Almacenamiento y Bienestar Digital (Unidad 3)
     val diagnosticoHardware: DiagnosticoHardware = DiagnosticoHardware(),
-    val metricasBienestar: MetricasBienestarDigital = MetricasBienestarDigital()
+    val metricasBienestar: MetricasBienestarDigital = MetricasBienestarDigital(),
+    val telemetriaSistema: TelemetriaSistema = TelemetriaSistema(),
+    val historialRamPorcentaje: List<Float> = emptyList(),
+    val historialAlmacenamientoPorcentaje: List<Float> = emptyList(),
+    val historialRedBajadaKbps: List<Float> = emptyList(),
+    val historialRedSubidaKbps: List<Float> = emptyList(),
+    val historialCpuAppPorcentaje: List<Float> = emptyList(),
+    val historialPotenciaWatts: List<Float> = emptyList(),
+    val monitoreoEnVivoActivo: Boolean = true
 )
 
 class TioTecViewModel(
@@ -463,6 +473,45 @@ class TioTecViewModel(
     // CUIDADO TECNOLÓGICO: Hardware, Batería, Almacenamiento y Bienestar Digital
     // =========================================================================
 
+    private fun agregarMuestra(
+        historial: List<Float>,
+        valor: Float,
+        maxMuestras: Int = 24
+    ): List<Float> = (historial + valor).takeLast(maxMuestras)
+
+    private fun aplicarTelemetriaConHistorial(
+        current: TioTecUiState,
+        hardware: DiagnosticoHardware,
+        telemetria: TelemetriaSistema
+    ): TioTecUiState = current.copy(
+        diagnosticoHardware = hardware,
+        telemetriaSistema = telemetria,
+        historialRamPorcentaje = agregarMuestra(
+            current.historialRamPorcentaje,
+            telemetria.estadoGlobal.porcentajeRamUsado.toFloat()
+        ),
+        historialAlmacenamientoPorcentaje = agregarMuestra(
+            current.historialAlmacenamientoPorcentaje,
+            telemetria.estadoGlobal.porcentajeAlmacenamientoUsado.toFloat()
+        ),
+        historialRedBajadaKbps = agregarMuestra(
+            current.historialRedBajadaKbps,
+            telemetria.estadoGlobal.redBajadaKbps.toFloat()
+        ),
+        historialRedSubidaKbps = agregarMuestra(
+            current.historialRedSubidaKbps,
+            telemetria.estadoGlobal.redSubidaKbps.toFloat()
+        ),
+        historialCpuAppPorcentaje = agregarMuestra(
+            current.historialCpuAppPorcentaje,
+            telemetria.consumoApp.porcentajeCpuApp
+        ),
+        historialPotenciaWatts = agregarMuestra(
+            current.historialPotenciaWatts,
+            telemetria.flujoEnergetico.potenciaWatts.toFloat()
+        )
+    )
+
     /**
      * Consulta los sensores nativos del dispositivo (BatteryManager, StatFs, UsageStatsManager)
      * y actualiza el estado de la UI.
@@ -470,11 +519,35 @@ class TioTecViewModel(
     fun cargarCuidadoTecnologico(context: Context) {
         val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
         val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
+        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
         _uiState.update { current ->
-            current.copy(
-                diagnosticoHardware = hardware,
-                metricasBienestar = bienestar
+            aplicarTelemetriaConHistorial(
+                current = current.copy(metricasBienestar = bienestar),
+                hardware = hardware,
+                telemetria = telemetria
             )
+        }
+    }
+
+    /**
+     * Refresca la telemetría del sistema en vivo para gráficos temporales
+     * sin emitir notificaciones ni mensajes Snackbar.
+     */
+    fun refrescarTelemetriaEnVivo(context: Context) {
+        val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
+        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
+        _uiState.update { current ->
+            aplicarTelemetriaConHistorial(
+                current = current,
+                hardware = hardware,
+                telemetria = telemetria
+            )
+        }
+    }
+
+    fun alternarMonitoreoEnVivo() {
+        _uiState.update { current ->
+            current.copy(monitoreoEnVivoActivo = !current.monitoreoEnVivoActivo)
         }
     }
 
@@ -485,13 +558,17 @@ class TioTecViewModel(
     fun ejecutarEscaneoMantenimiento(context: Context) {
         val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
         val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
+        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
         ChequeoMantenimientoHelper.evaluarYNotificar(context, hardware, bienestar)
 
         _uiState.update { current ->
-            current.copy(
-                diagnosticoHardware = hardware,
-                metricasBienestar = bienestar,
-                mensajeExito = "Escaneo de hardware y bienestar completado con éxito"
+            aplicarTelemetriaConHistorial(
+                current = current.copy(
+                    metricasBienestar = bienestar,
+                    mensajeExito = "Escaneo de hardware y bienestar completado con éxito"
+                ),
+                hardware = hardware,
+                telemetria = telemetria
             )
         }
     }
@@ -538,6 +615,45 @@ class TioTecViewModel(
                     descripcion = "Uso de pantalla superior a 3 horas diarias. Se recomienda activar límites y pausas programadas.",
                     categoria = CategoriaSeguridad.RECUPERACION,
                     prioridad = PrioridadAccion.MEDIA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (state.telemetriaSistema.estadoGlobal.ramAlerta) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_ram_${System.currentTimeMillis()}",
+                    titulo = "Optimización de RAM: cerrar procesos pesados y revisar apps en segundo plano",
+                    descripcion = "La memoria RAM alcanzó el ${state.telemetriaSistema.estadoGlobal.porcentajeRamUsado}% de uso o el sistema reportó memoria baja.",
+                    categoria = CategoriaSeguridad.ACTUALIZACIONES,
+                    prioridad = PrioridadAccion.ALTA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (state.telemetriaSistema.flujoEnergetico.descargaAltaAlerta) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_energia_${System.currentTimeMillis()}",
+                    titulo = "Flujo energético elevado: reducir brillo y desactivar antenas innecesarias",
+                    descripcion = "Se detectó una descarga de ${state.telemetriaSistema.flujoEnergetico.potenciaWatts} W (${state.telemetriaSistema.flujoEnergetico.corrienteInstantaneaMa} mA).",
+                    categoria = CategoriaSeguridad.RESPALDOS,
+                    prioridad = PrioridadAccion.MEDIA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (state.telemetriaSistema.estadoGlobal.alertaThrottling) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_throttling_${System.currentTimeMillis()}",
+                    titulo = "Estrés térmico detectado (PowerManager): pausar tareas pesadas y retirar funda para evitar thermal throttling",
+                    descripcion = "Estado térmico: ${state.telemetriaSistema.estadoGlobal.estadoTermicoEtiqueta}. Reduce carga intensiva de CPU/GPU.",
+                    categoria = CategoriaSeguridad.RESPALDOS,
+                    prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
                 )
             )

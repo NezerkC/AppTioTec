@@ -216,6 +216,23 @@ internal fun MainScreenContent(
                             fontWeight = FontWeight.Medium
                         )
                     }
+                    Spacer(Modifier.height(6.dp))
+                    val estadoGlobal = state.telemetriaSistema.estadoGlobal
+                    Text(
+                        text = "🧠 RAM: ${estadoGlobal.porcentajeRamUsado}% · ⚡ Flujo: ${state.telemetriaSistema.flujoEnergetico.potenciaWatts} W · 🌐 ↓${estadoGlobal.redBajadaFormateada} ↑${estadoGlobal.redSubidaFormateada}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (estadoGlobal.alertaThrottling || estadoGlobal.estadoTermicoCodigo >= 1) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "🌡️ Alerta térmica: ${estadoGlobal.estadoTermicoEtiqueta}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         }
