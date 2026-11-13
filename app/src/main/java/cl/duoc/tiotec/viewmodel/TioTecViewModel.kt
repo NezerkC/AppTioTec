@@ -509,6 +509,7 @@ class TioTecViewModel(
                 AccionChecklist(
                     id = "check_storage_${System.currentTimeMillis()}",
                     titulo = "Limpieza de almacenamiento: depurar caché y desinstalar apps en desuso",
+                    descripcion = "El almacenamiento supera el 80% de ocupación. Libera espacio para mantener el rendimiento.",
                     categoria = CategoriaSeguridad.ACTUALIZACIONES,
                     prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
@@ -521,6 +522,7 @@ class TioTecViewModel(
                 AccionChecklist(
                     id = "check_temp_${System.currentTimeMillis()}",
                     titulo = "Cuidado térmico: evitar carga rápida con funda gruesa y tareas intensivas",
+                    descripcion = "La batería superó los 38°C. Evita usar el teléfono mientras carga y retira fundas térmicas.",
                     categoria = CategoriaSeguridad.RESPALDOS,
                     prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
@@ -533,6 +535,7 @@ class TioTecViewModel(
                 AccionChecklist(
                     id = "check_digital_${System.currentTimeMillis()}",
                     titulo = "Higiene digital: configurar pausas de pantalla y activar modo descanso nocturno",
+                    descripcion = "Uso de pantalla superior a 3 horas diarias. Se recomienda activar límites y pausas programadas.",
                     categoria = CategoriaSeguridad.RECUPERACION,
                     prioridad = PrioridadAccion.MEDIA,
                     fechaSugerida = fechaHoy
@@ -545,6 +548,7 @@ class TioTecViewModel(
                 AccionChecklist(
                     id = "check_mant_${System.currentTimeMillis()}",
                     titulo = "Chequeo rutinario: reiniciar el teléfono semanalmente para liberar memoria RAM",
+                    descripcion = "Tu dispositivo se encuentra en rangos saludables. Mantén un reinicio periódico preventivo.",
                     categoria = CategoriaSeguridad.ACTUALIZACIONES,
                     prioridad = PrioridadAccion.BAJA,
                     fechaSugerida = fechaHoy
@@ -561,7 +565,7 @@ class TioTecViewModel(
         }
 
         viewModelScope.launch {
-            nuevasAcciones.forEach { repository.guardarAccionChecklist(it) }
+            repository.guardarAcciones(nuevasAcciones)
         }
     }
 }

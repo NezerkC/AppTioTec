@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
@@ -91,8 +92,8 @@ fun CuidadoTechScreen(
         item {
             TabRow(
                 selectedTabIndex = pestanaSeleccionada,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Tab(
                     selected = pestanaSeleccionada == 0,

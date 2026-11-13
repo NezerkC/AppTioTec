@@ -50,6 +50,7 @@ import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.ui.evaluacion.EvaluacionScreen
 import cl.duoc.tiotec.ui.historial.HistorialScreen
 import cl.duoc.tiotec.ui.main.MainScreenContent
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Favorite
 import cl.duoc.tiotec.ui.asistencia.AsistenciaScreen
 import cl.duoc.tiotec.ui.cuidado.CuidadoTechScreen
