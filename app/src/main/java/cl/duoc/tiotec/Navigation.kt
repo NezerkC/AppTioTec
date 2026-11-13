@@ -82,7 +82,11 @@ fun MainNavigation(
         val app = this[androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
         if (app != null) {
             val db = TioTecDatabase.getInstance(app)
-            val repo = TioTecRepository(dao = db.tioTecDao())
+            val repo = TioTecRepository(
+                dao = db.tioTecDao(),
+                diagnosticoDao = db.diagnosticoHardwareDao(),
+                apiService = cl.duoc.tiotec.data.remote.RetrofitClient.crearServicio()
+            )
             val ds = PreferenciasDataStore(app)
             TioTecViewModel(repository = repo, preferenciasDataStore = ds)
         } else {
@@ -187,7 +191,11 @@ fun MainNavigation(
                         onEscanear = { ctx -> viewModel.ejecutarEscaneoMantenimiento(ctx) },
                         onGenerarAccionesChecklist = { viewModel.generarAccionesCuidadoEnChecklist() },
                         onRefrescarEnVivo = { ctx -> viewModel.refrescarTelemetriaEnVivo(ctx) },
-                        onAlternarEnVivo = { viewModel.alternarMonitoreoEnVivo() }
+                        onAlternarEnVivo = { viewModel.alternarMonitoreoEnVivo() },
+                        onGuardarEnRoom = { viewModel.guardarDiagnosticoEnRoom() },
+                        onSincronizarConBackend = { id -> viewModel.sincronizarDiagnosticoConBackend(id) },
+                        onConsultarRemoto = { viewModel.consultarDiagnosticosRemotos() },
+                        onUrlServidorChange = { url -> viewModel.onUrlServidorSpringChange(url) }
                     )
                 }
                 SeccionNavegacion.EVALUAR -> {

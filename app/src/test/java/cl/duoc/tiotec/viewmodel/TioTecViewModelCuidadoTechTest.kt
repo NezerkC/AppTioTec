@@ -80,4 +80,20 @@ class TioTecViewModelCuidadoTechTest {
         assertTrue("El checklist debió incrementarse con las tareas de cuidado", totalDespues > totalAntes)
         assertTrue(vm.uiState.value.mensajeExito?.contains("Checklist") == true)
     }
+
+    @Test
+    fun viewModel_guardaDiagnosticoEnRoom_actualizaMensajeExito() {
+        val vm = TioTecViewModel()
+        vm.guardarDiagnosticoEnRoom()
+        assertTrue(vm.uiState.value.mensajeExito?.contains("Room (SQLite)") == true)
+    }
+
+    @Test
+    fun viewModel_actualizaUrlServidorSpring() {
+        val vm = TioTecViewModel()
+        assertEquals("http://10.0.2.2:8080/", vm.uiState.value.urlServidorSpring)
+
+        vm.onUrlServidorSpringChange("http://192.168.3.150:8080/")
+        assertEquals("http://192.168.3.150:8080/", vm.uiState.value.urlServidorSpring)
+    }
 }

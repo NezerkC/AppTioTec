@@ -1,8 +1,6 @@
 package cl.duoc.tiotec.ui.cuidado
 
 import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -25,19 +23,21 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -51,47 +51,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cl.duoc.tiotec.model.AlmacenamientoInfo
 import cl.duoc.tiotec.model.AppUsoInfo
-import cl.duoc.tiotec.model.CamaraHardwareInfo
-import cl.duoc.tiotec.model.ConsumoPropiaApp
-import cl.duoc.tiotec.model.DiagnosticoHardware
-import cl.duoc.tiotec.model.EstadoGlobalHardware
-import cl.duoc.tiotec.model.FlujoEnergeticoDispositivo
+import cl.duoc.tiotec.model.BateriaInfo
+import cl.duoc.tiotec.model.DiagnosticoHardwareRegistro
+import cl.duoc.tiotec.model.DiagnosticoSistema
+import cl.duoc.tiotec.model.InventarioSensores
 import cl.duoc.tiotec.model.MetricasBienestarDigital
 import cl.duoc.tiotec.model.NivelRiesgo
-import cl.duoc.tiotec.model.PantallaHardwareInfo
+import cl.duoc.tiotec.model.RamInfo
 import cl.duoc.tiotec.model.SensorHardwareInfo
-import cl.duoc.tiotec.model.TelemetriaSistema
-import cl.duoc.tiotec.nativo.BienestarDigitalHelper
 import cl.duoc.tiotec.ui.components.colorFondo
 import cl.duoc.tiotec.ui.components.colorTexto
 import cl.duoc.tiotec.viewmodel.TioTecUiState
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.util.Locale
-import kotlin.math.max
 import kotlin.math.roundToInt
 
-private data class SerieGrafica(
-    val etiqueta: String,
-    val valores: List<Float>,
-    val color: Color
-)
-
 /**
- * Pantalla principal del módulo de Cuidado Tecnológico (Unidad 3).
- * Integra monitoreo en vivo de energía, estrés térmico, rendimiento, inventario de hardware y bienestar digital.
+ * Pantalla principal de Cuidado Tecnológico (Unidad 3 / Entrega Final).
+ * Enfocada en hardware estable (Batería, RAM, Almacenamiento, Sensores),
+ * persistencia local en Room (SQLite) y sincronización con Spring Boot vía Retrofit.
  */
 @Composable
 fun CuidadoTechScreen(
@@ -100,29 +84,25 @@ fun CuidadoTechScreen(
     onGenerarAccionesChecklist: () -> Unit,
     modifier: Modifier = Modifier,
     onRefrescarEnVivo: (Context) -> Unit = onEscanear,
-    onAlternarEnVivo: () -> Unit = {}
+    onAlternarEnVivo: () -> Unit = {},
+    onGuardarEnRoom: () -> Unit = {},
+    onSincronizarConBackend: (String?) -> Unit = {},
+    onConsultarRemoto: () -> Unit = {},
+    onUrlServidorChange: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var pestanaSeleccionada by remember { mutableIntStateOf(0) }
     val pestanas = remember {
         listOf(
-            "Energía y Térmico",
-            "Rendimiento",
-            "Hardware y Sensores",
-            "Mi App (Self-Profiling)",
-            "Bienestar"
+            "Hardware Estable",
+            "Persistencia Room",
+            "Spring Boot API",
+            "Bienestar Digital"
         )
     }
 
     LaunchedEffect(Unit) {
         onEscanear(context)
-    }
-
-    LaunchedEffect(state.monitoreoEnVivoActivo) {
-        while (isActive && state.monitoreoEnVivoActivo) {
-            onRefrescarEnVivo(context)
-            delay(1500L)
-        }
     }
 
     LazyColumn(
@@ -132,18 +112,10 @@ fun CuidadoTechScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            HeaderCuidadoTech(
-                hardware = state.diagnosticoHardware,
-                bienestar = state.metricasBienestar,
-                telemetria = state.telemetriaSistema
-            )
-        }
-
-        item {
-            BarraMonitorEnVivo(
-                activo = state.monitoreoEnVivoActivo,
-                totalMuestras = state.historialPotenciaWatts.size,
-                onAlternar = onAlternarEnVivo
+            HeaderHardwareEstable(
+                diagnostico = state.diagnosticoSistema,
+                onEscanear = { onEscanear(context) },
+                onGenerarAcciones = onGenerarAccionesChecklist
             )
         }
 
@@ -174,1280 +146,684 @@ fun CuidadoTechScreen(
 
         when (pestanaSeleccionada) {
             0 -> {
-                item {
-                    BannerEstresTermico(estadoGlobal = state.telemetriaSistema.estadoGlobal)
-                }
-                item {
-                    TarjetaFlujoEnergetico(
-                        flujo = state.telemetriaSistema.flujoEnergetico,
-                        historialWatts = state.historialPotenciaWatts
-                    )
-                }
-                item {
-                    TarjetaBateria(hardware = state.diagnosticoHardware)
-                }
+                // Tab 0: Hardware Estable (Batería, RAM, Almacenamiento, Sensores)
+                val diag = state.diagnosticoSistema
+                item { TarjetaBateriaEstable(bateria = diag.bateria) }
+                item { TarjetaRamEstable(ram = diag.ram) }
+                item { TarjetaAlmacenamientoEstable(almacenamiento = diag.almacenamiento) }
+                item { TarjetaSensoresEstable(sensores = diag.sensores) }
             }
             1 -> {
+                // Tab 1: Persistencia en Room (SQLite)
                 item {
-                    TarjetaRendimientoRam(
-                        estadoGlobal = state.telemetriaSistema.estadoGlobal,
-                        historialRam = state.historialRamPorcentaje
+                    TarjetaAccionGuardarRoom(
+                        diagnostico = state.diagnosticoSistema,
+                        totalGuardados = state.historialDiagnosticos.size,
+                        onGuardar = onGuardarEnRoom
                     )
                 }
                 item {
-                    TarjetaRendimientoAlmacenamiento(
-                        estadoGlobal = state.telemetriaSistema.estadoGlobal,
-                        historialAlmacenamiento = state.historialAlmacenamientoPorcentaje
+                    Text(
+                        text = "Historial en Base de Datos Local Room (${state.historialDiagnosticos.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
-                item {
-                    TarjetaRendimientoRedGlobal(
-                        estadoGlobal = state.telemetriaSistema.estadoGlobal,
-                        historialBajada = state.historialRedBajadaKbps,
-                        historialSubida = state.historialRedSubidaKbps
-                    )
-                }
-                item {
-                    TarjetaFichaSoC(estadoGlobal = state.telemetriaSistema.estadoGlobal)
-                }
-            }
-            2 -> {
-                val inventario = state.telemetriaSistema.inventarioHardware
-                item {
-                    TarjetaPantallasHardware(pantallas = inventario.pantallas)
-                }
-                item {
-                    TarjetaCamarasHardware(camaras = inventario.camaras)
-                }
-                item {
-                    TarjetaResumenSensores(
-                        totalSensores = inventario.sensores.size,
-                        consumoTotalMa = inventario.consumoTotalSensoresMa
-                    )
-                }
-                if (inventario.sensores.isEmpty()) {
+                if (state.historialDiagnosticos.isEmpty()) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Text(
-                                text = "No se reportaron sensores físicos disponibles.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(16.dp)
+                                text = "Aún no se han guardado diagnósticos en Room. Presiona 'Guardar Diagnóstico en Room' para persistir el estado actual.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 } else {
-                    items(inventario.sensores) { sensor ->
-                        FilaSensorHardware(sensor = sensor)
+                    items(state.historialDiagnosticos) { registro ->
+                        ItemHistorialDiagnostico(
+                            registro = registro,
+                            onSincronizar = { onSincronizarConBackend(registro.id) }
+                        )
                     }
+                }
+            }
+            2 -> {
+                // Tab 2: Spring Boot + Retrofit
+                item {
+                    TarjetaSpringBootRetrofit(
+                        urlServidor = state.urlServidorSpring,
+                        onUrlChange = onUrlServidorChange,
+                        sincronizando = state.sincronizandoApi,
+                        onSubirActual = { onSincronizarConBackend(null) },
+                        onConsultar = onConsultarRemoto
+                    )
                 }
             }
             3 -> {
-                item {
-                    TarjetaConsumoPropiaApp(
-                        consumo = state.telemetriaSistema.consumoApp,
-                        historialCpu = state.historialCpuAppPorcentaje
-                    )
-                }
-                item {
-                    TarjetaNotaSandboxAndroid(nota = state.telemetriaSistema.notaSandboxAndroid)
-                }
-            }
-            else -> {
-                item {
-                    TarjetaBienestarDigital(
-                        metricas = state.metricasBienestar,
-                        context = context
-                    )
-                }
-            }
-        }
-
-        item {
-            TarjetaAccionesCuidado(
-                onEscanear = { onEscanear(context) },
-                onGenerarAcciones = onGenerarAccionesChecklist
-            )
-        }
-
-        item {
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun HeaderCuidadoTech(
-    hardware: DiagnosticoHardware,
-    bienestar: MetricasBienestarDigital,
-    telemetria: TelemetriaSistema
-) {
-    val nivelGlobal = when {
-        hardware.nivelRiesgo == NivelRiesgo.ALTO ||
-            bienestar.nivelRiesgo == NivelRiesgo.ALTO ||
-            telemetria.nivelRiesgo == NivelRiesgo.ALTO -> NivelRiesgo.ALTO
-        hardware.nivelRiesgo == NivelRiesgo.MEDIO ||
-            bienestar.nivelRiesgo == NivelRiesgo.MEDIO ||
-            telemetria.nivelRiesgo == NivelRiesgo.MEDIO -> NivelRiesgo.MEDIO
-        else -> NivelRiesgo.BAJO
-    }
-
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = nivelGlobal.colorFondo
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Build,
-                    contentDescription = null,
-                    tint = nivelGlobal.colorTexto,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Centro de Cuidado Tecnológico",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = nivelGlobal.colorTexto
-                    )
-                    Text(
-                        text = "Telemetría en Vivo y Diagnóstico Preventivo",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = nivelGlobal.colorTexto.copy(alpha = 0.85f)
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = hardware.recomendacion,
-                style = MaterialTheme.typography.bodyMedium,
-                color = nivelGlobal.colorTexto
-            )
-        }
-    }
-}
-
-@Composable
-private fun BarraMonitorEnVivo(
-    activo: Boolean,
-    totalMuestras: Int,
-    onAlternar: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (activo) Color(0xFF2E7D32)
-                            else MaterialTheme.colorScheme.outline
-                        )
-                )
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "Monitor en vivo (1.5s)",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (activo) "Muestreo activo · $totalMuestras/24 puntos" else "En pausa · $totalMuestras/24 puntos",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            FilterChip(
-                selected = activo,
-                onClick = onAlternar,
-                label = {
-                    Text(
-                        text = if (activo) "Pausar" else "Reanudar",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun BannerEstresTermico(estadoGlobal: EstadoGlobalHardware) {
-    val hayAlerta = estadoGlobal.alertaThrottling || estadoGlobal.estadoTermicoCodigo >= 1
-    val esCritico = estadoGlobal.alertaThrottling || estadoGlobal.estadoTermicoCodigo >= 2
-
-    val fondo = when {
-        esCritico -> MaterialTheme.colorScheme.errorContainer
-        hayAlerta -> Color(0xFFFFF3E0)
-        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
-    }
-    val textoColor = when {
-        esCritico -> MaterialTheme.colorScheme.onErrorContainer
-        hayAlerta -> Color(0xFFE65100)
-        else -> MaterialTheme.colorScheme.onSecondaryContainer
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = fondo)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = if (hayAlerta) Icons.Default.Warning else Icons.Default.Info,
-                        contentDescription = null,
-                        tint = textoColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Estado Térmico (PowerManager)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = textoColor
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = textoColor.copy(alpha = 0.14f)
-                ) {
-                    Text(
-                        text = "Código ${estadoGlobal.estadoTermicoCodigo}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = textoColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = estadoGlobal.estadoTermicoEtiqueta,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = textoColor
-            )
-
-            val headroomTexto = if (estadoGlobal.margenTermico < 0f) {
-                "No disponible (< API 30)"
-            } else {
-                String.format(Locale.US, "%.0f%% (%.2f)", estadoGlobal.margenTermico * 100f, estadoGlobal.margenTermico)
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "Thermal Headroom: $headroomTexto",
-                style = MaterialTheme.typography.bodySmall,
-                color = textoColor.copy(alpha = 0.9f)
-            )
-
-            if (hayAlerta) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = if (esCritico) {
-                        "Thermal throttling detectado: el sistema puede limitar CPU/GPU. Pausa tareas pesadas y retira la funda."
-                    } else {
-                        "Estrés térmico leve: vigila la temperatura si estás jugando o cargando."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = textoColor
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaFlujoEnergetico(
-    flujo: FlujoEnergeticoDispositivo,
-    historialWatts: List<Float>
-) {
-    val colorPotencia = if (flujo.descargaAltaAlerta) {
-        MaterialTheme.colorScheme.error
-    } else {
-        MaterialTheme.colorScheme.primary
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Flujo eléctrico en vivo",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${flujo.potenciaWatts} W",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colorPotencia
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            GraficaTelemetriaCanvas(
-                series = listOf(
-                    SerieGrafica(
-                        etiqueta = "Potencia (W)",
-                        valores = historialWatts,
-                        color = colorPotencia
-                    )
-                ),
-                unidad = "W",
-                maxFijo = null
-            )
-
-            Spacer(Modifier.height(14.dp))
-            FilaDato("Dirección de flujo:", flujo.direccionFlujo)
-            FilaDato(
-                "Corriente instantánea:",
-                "${flujo.corrienteInstantaneaMa} mA (${flujo.corrienteInstantaneaUa} µA)",
-                esAlerta = flujo.descargaAltaAlerta
-            )
-            FilaDato(
-                "Corriente promedio:",
-                "${flujo.corrientePromedioMa} mA (${flujo.corrientePromedioUa} µA)"
-            )
-            FilaDato("Potencia eléctrica:", "${flujo.potenciaWatts} W")
-            FilaDato("Voltaje / Temp:", "${flujo.voltajeMv} mV · ${flujo.temperaturaCelsius} °C")
-            FilaDato("Capacidad remanente:", "${flujo.capacidadRemanenteMah} mAh")
-
-            if (flujo.descargaAltaAlerta) {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Consumo de descarga elevado. Reduce el brillo o cierra apps exigentes.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaBateria(hardware: DiagnosticoHardware) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Batería (BatteryManager)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${hardware.nivelBateria}%",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (hardware.nivelBateria <= 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-            val progresoBateria by animateFloatAsState(
-                targetValue = (hardware.nivelBateria / 100f).coerceIn(0f, 1f),
-                label = "progresoBateria"
-            )
-            LinearProgressIndicator(
-                progress = { progresoBateria },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = if (hardware.nivelBateria <= 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(Modifier.height(14.dp))
-            FilaDato("Estado:", if (hardware.estaCargando) "Cargando (${hardware.fuenteEnergia})" else "En uso con batería")
-            FilaDato("Temperatura:", "${hardware.temperaturaBateria} °C", esAlerta = hardware.temperaturaAlerta)
-            FilaDato("Salud de la Batería:", hardware.saludBateria)
-            FilaDato("Voltaje:", "${hardware.voltajeBateria} mV")
-
-            if (hardware.temperaturaAlerta) {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Temperatura elevada. Evita usar el teléfono mientras carga.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaRendimientoRam(
-    estadoGlobal: EstadoGlobalHardware,
-    historialRam: List<Float>
-) {
-    val colorRam = if (estadoGlobal.ramAlerta) MaterialTheme.colorScheme.error else Color(0xFF1565C0)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Memoria RAM",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${estadoGlobal.porcentajeRamUsado}%",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = colorRam
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            GraficaTelemetriaCanvas(
-                series = listOf(
-                    SerieGrafica(
-                        etiqueta = "Uso RAM (%)",
-                        valores = historialRam,
-                        color = colorRam
-                    )
-                ),
-                unidad = "%",
-                maxFijo = 100f
-            )
-
-            Spacer(Modifier.height(12.dp))
-            FilaDato(
-                "Ocupada / Total:",
-                "${estadoGlobal.ramUsadaMb} MB / ${estadoGlobal.ramTotalMb} MB",
-                esAlerta = estadoGlobal.ramAlerta
-            )
-            FilaDato("RAM libre:", "${estadoGlobal.ramDisponibleMb} MB")
-            FilaDato("Umbral memoria baja:", "${estadoGlobal.umbralMemoriaBajaMb} MB")
-        }
-    }
-}
-
-@Composable
-private fun TarjetaRendimientoAlmacenamiento(
-    estadoGlobal: EstadoGlobalHardware,
-    historialAlmacenamiento: List<Float>
-) {
-    val colorDisco = if (estadoGlobal.porcentajeAlmacenamientoUsado >= 85) {
-        MaterialTheme.colorScheme.error
-    } else {
-        Color(0xFF2E7D32)
-    }
-    val usadoGb = ((estadoGlobal.almacenamientoTotalGb - estadoGlobal.almacenamientoLibreGb).coerceAtLeast(0.0) * 10.0)
-        .roundToInt() / 10.0
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Almacenamiento (StatFs)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${estadoGlobal.porcentajeAlmacenamientoUsado}%",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = colorDisco
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            GraficaTelemetriaCanvas(
-                series = listOf(
-                    SerieGrafica(
-                        etiqueta = "Uso Disco (%)",
-                        valores = historialAlmacenamiento,
-                        color = colorDisco
-                    )
-                ),
-                unidad = "%",
-                maxFijo = 100f
-            )
-
-            Spacer(Modifier.height(12.dp))
-            FilaDato("Usado / Total:", "$usadoGb GB / ${estadoGlobal.almacenamientoTotalGb} GB")
-            FilaDato("Espacio libre:", "${estadoGlobal.almacenamientoLibreGb} GB")
-        }
-    }
-}
-
-@Composable
-private fun TarjetaRendimientoRedGlobal(
-    estadoGlobal: EstadoGlobalHardware,
-    historialBajada: List<Float>,
-    historialSubida: List<Float>
-) {
-    val colorRx = Color(0xFF0277BD)
-    val colorTx = Color(0xFFEF6C00)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Tráfico de Red Global (TrafficStats)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            GraficaTelemetriaCanvas(
-                series = listOf(
-                    SerieGrafica("Descarga (↓)", historialBajada, colorRx),
-                    SerieGrafica("Subida (↑)", historialSubida, colorTx)
-                ),
-                unidad = "KB/s",
-                maxFijo = null
-            )
-
-            Spacer(Modifier.height(12.dp))
-            FilaDato("Velocidad descarga (↓):", estadoGlobal.redBajadaFormateada)
-            FilaDato("Velocidad subida (↑):", estadoGlobal.redSubidaFormateada)
-            FilaDato("Acumulado RX / TX:", "${estadoGlobal.redTotalRxMb} MB / ${estadoGlobal.redTotalTxMb} MB")
-        }
-    }
-}
-
-@Composable
-private fun TarjetaFichaSoC(estadoGlobal: EstadoGlobalHardware) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Ficha Técnica de CPU y SoC",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(10.dp))
-            FilaDato("Modelo de SoC:", estadoGlobal.modeloSoC)
-            FilaDato("Arquitectura ABI:", estadoGlobal.arquitecturaCpu)
-            FilaDato("Núcleos activos:", "${estadoGlobal.nucleosCpu} núcleos")
-            FilaDato("Dispositivo:", estadoGlobal.modeloDispositivo)
-            FilaDato("Sistema Operativo:", "Android ${estadoGlobal.versionAndroid}")
-            FilaDato(
-                "Ahorro de energía:",
-                if (estadoGlobal.modoAhorroEnergia) "Activado" else "Desactivado"
-            )
-        }
-    }
-}
-
-@Composable
-private fun TarjetaPantallasHardware(pantallas: List<PantallaHardwareInfo>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Pantallas y Tasa de Refresco (${pantallas.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(10.dp))
-
-            if (pantallas.isEmpty()) {
-                Text(
-                    text = "Sin pantallas reportadas por DisplayManager.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                pantallas.forEachIndexed { idx, pantalla ->
-                    if (idx > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Text(
-                        text = "${pantalla.nombre} (ID ${pantalla.id})",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    FilaDato("Resolución:", pantalla.resolucion)
-                    FilaDato("Refresco actual:", "${pantalla.tasaRefrescoHz.roundToInt()} Hz")
-                    if (pantalla.tasasSoportadasHz.isNotEmpty()) {
-                        val tasasTexto = pantalla.tasasSoportadasHz
-                            .joinToString(", ") { "${it.roundToInt()} Hz" }
-                        FilaDato("Modos soportados:", tasasTexto)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaCamarasHardware(camaras: List<CamaraHardwareInfo>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Cámaras Físicas (${camaras.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(10.dp))
-
-            if (camaras.isEmpty()) {
-                Text(
-                    text = "Sin cámaras reportadas por CameraManager.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                camaras.forEachIndexed { idx, cam ->
-                    if (idx > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    FilaDato("Cámara #${cam.id} (${cam.ubicacion}):", cam.nivelHardware)
-                    FilaDato("Flash disponible:", if (cam.tieneFlash) "Sí" else "No")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaResumenSensores(
-    totalSensores: Int,
-    consumoTotalMa: Double
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Sensores Integrados ($totalSensores)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "$consumoTotalMa mA",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "Consumo teórico combinado si todos los sensores operaran simultáneamente: $consumoTotalMa mA.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun FilaSensorHardware(sensor: SensorHardwareInfo) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = sensor.nombre,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "${String.format(Locale.US, "%.2f", sensor.consumoMa)} mA",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            FilaDato("Fabricante:", sensor.fabricante)
-            FilaDato("Tipo:", sensor.tipo)
-            FilaDato(
-                "Rango / Resolución:",
-                "${String.format(Locale.US, "%.2f", sensor.rangoMaximo)} · ${String.format(Locale.US, "%.4f", sensor.resolucion)}"
-            )
-        }
-    }
-}
-
-@Composable
-private fun TarjetaConsumoPropiaApp(
-    consumo: ConsumoPropiaApp,
-    historialCpu: List<Float>
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Perfilador en Vivo (AppTioTec)",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${String.format(Locale.US, "%.1f", consumo.porcentajeCpuApp)}% CPU",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            GraficaTelemetriaCanvas(
-                series = listOf(
-                    SerieGrafica(
-                        etiqueta = "CPU Propia (%)",
-                        valores = historialCpu,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                ),
-                unidad = "%",
-                maxFijo = 100f
-            )
-
-            Spacer(Modifier.height(12.dp))
-            val progresoHeap by animateFloatAsState(
-                targetValue = (consumo.porcentajeHeapUsado / 100f).coerceIn(0f, 1f),
-                label = "progresoHeap"
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Heap JVM",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${consumo.porcentajeHeapUsado}%",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { progresoHeap },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp),
-                color = MaterialTheme.colorScheme.secondary
-            )
-
-            Spacer(Modifier.height(12.dp))
-            FilaDato("Proceso:", "PID ${consumo.pidProceso} · UID ${consumo.uidAplicacion}")
-            FilaDato("Potencia estimada:", "${consumo.potenciaEstimadaMw} mW")
-            FilaDato("Consumo en sesión:", "${consumo.consumoBateriaSesionMah} mAh")
-            FilaDato(
-                "Red propia (↓ / ↑):",
-                "${String.format(Locale.US, "%.1f", consumo.redRxKbps)} / ${String.format(Locale.US, "%.1f", consumo.redTxKbps)} KB/s"
-            )
-            FilaDato("Red total sesión app:", "${consumo.redTotalAppKb} KB")
-            FilaDato("Memoria PSS total:", "${consumo.memoriaPssTotalMb} MB")
-            FilaDato(
-                "Heap JVM usado / máx:",
-                "${consumo.heapUsadoMb} MB / ${consumo.heapMaximoMb} MB"
-            )
-            FilaDato("Tiempo de CPU / Hilos:", "${consumo.tiempoCpuMs} ms · ${consumo.hilosActivos} hilos")
-        }
-    }
-}
-
-@Composable
-private fun GraficaTelemetriaCanvas(
-    series: List<SerieGrafica>,
-    unidad: String,
-    maxFijo: Float? = null,
-    modifier: Modifier = Modifier
-) {
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-    val bgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    val maxCalculado = remember(series, maxFijo) {
-        if (maxFijo != null) {
-            max(1f, maxFijo)
-        } else {
-            val pico = series.flatMap { it.valores }.maxOrNull() ?: 0f
-            max(1f, pico * 1.15f)
-        }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                series.forEach { serie ->
-                    val ultimo = serie.valores.lastOrNull()
-                    val textoValor = if (ultimo != null) {
-                        "${serie.etiqueta}: ${String.format(Locale.US, "%.1f", ultimo)} $unidad"
-                    } else {
-                        "${serie.etiqueta}: -- $unidad"
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(serie.color)
-                        )
-                        Spacer(Modifier.width(4.dp))
+                // Tab 3: Bienestar Digital
+                val bienestar = state.metricasBienestar
+                item { TarjetaResumenBienestar(bienestar = bienestar) }
+                if (bienestar.appsMasUsadas.isNotEmpty()) {
+                    item {
                         Text(
-                            text = textoValor,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium
+                            text = "Aplicaciones con mayor tiempo de pantalla",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
-            }
-            Text(
-                text = "Máx ${String.format(Locale.US, "%.0f", maxCalculado)} $unidad",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(110.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(bgColor)
-                .border(1.dp, gridColor, RoundedCornerShape(10.dp))
-        ) {
-            val w = size.width
-            val h = size.height
-            if (w <= 0f || h <= 0f) return@Canvas
-
-            // Grilla estilo Monitor de Rendimiento
-            for (i in 1..3) {
-                val y = h * (i / 4f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(w, y),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
-            for (i in 1..5) {
-                val x = w * (i / 6f)
-                drawLine(
-                    color = gridColor,
-                    start = Offset(x, 0f),
-                    end = Offset(x, h),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
-
-            val paddingV = 6.dp.toPx()
-            val usableH = (h - paddingV * 2f).coerceAtLeast(1f)
-
-            series.forEach { serie ->
-                val valores = serie.valores
-                if (valores.isEmpty()) return@forEach
-
-                val puntos: List<Offset> = if (valores.size == 1) {
-                    val norm = (valores[0] / maxCalculado).coerceIn(0f, 1f)
-                    val y = paddingV + usableH * (1f - norm)
-                    listOf(Offset(0f, y), Offset(w, y))
-                } else {
-                    val pasoX = w / (valores.size - 1).toFloat()
-                    valores.mapIndexed { idx, v ->
-                        val norm = (v / maxCalculado).coerceIn(0f, 1f)
-                        val x = (idx * pasoX).coerceIn(0f, w)
-                        val y = paddingV + usableH * (1f - norm)
-                        Offset(x, y)
+                    items(bienestar.appsMasUsadas) { app ->
+                        ItemAppUso(app = app)
                     }
                 }
-
-                val linePath = Path().apply {
-                    moveTo(puntos.first().x, puntos.first().y)
-                    for (i in 1 until puntos.size) {
-                        lineTo(puntos[i].x, puntos[i].y)
-                    }
-                }
-
-                val fillPath = Path().apply {
-                    addPath(linePath)
-                    lineTo(puntos.last().x, h)
-                    lineTo(puntos.first().x, h)
-                    close()
-                }
-
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            serie.color.copy(alpha = 0.28f),
-                            serie.color.copy(alpha = 0.02f)
-                        )
-                    )
-                )
-
-                drawPath(
-                    path = linePath,
-                    color = serie.color,
-                    style = Stroke(
-                        width = 2.2.dp.toPx(),
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-                )
-
-                drawCircle(
-                    color = serie.color,
-                    radius = 3.5.dp.toPx(),
-                    center = puntos.last()
-                )
             }
         }
     }
 }
 
 @Composable
-private fun TarjetaNotaSandboxAndroid(nota: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = "Privacidad y Sandbox de Android",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = nota,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TarjetaBienestarDigital(
-    metricas: MetricasBienestarDigital,
-    context: Context
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Bienestar Digital (UsageStatsManager)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(8.dp))
-
-            if (!metricas.permisoConcedido) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Para monitorear el tiempo en pantalla y detectar sobreuso, Android requiere el permiso especial de 'Acceso a datos de uso' (AppOpsManager).",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    FilledTonalButton(
-                        onClick = {
-                            context.startActivity(BienestarDigitalHelper.crearIntentAjustesUso())
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Conceder Acceso a Estadísticas")
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Tiempo total en pantalla hoy:",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = metricas.tiempoTotalFormateado,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (metricas.alertaUsoExcesivo) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = metricas.recomendacion,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Aplicaciones con mayor tiempo de uso:",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(8.dp))
-
-                metricas.appsMasUsadas.forEach { app ->
-                    FilaAppUso(app = app, tiempoTotal = metricas.tiempoTotalPantallaMinutos)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilaAppUso(app: AppUsoInfo, tiempoTotal: Long) {
-    val porcentaje = if (tiempoTotal > 0) (app.tiempoMinutos.toFloat() / tiempoTotal).coerceIn(0f, 1f) else 0f
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = app.nombreApp,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = app.tiempoFormateado,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = { porcentaje },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
-        )
-    }
-}
-
-@Composable
-private fun TarjetaAccionesCuidado(
+private fun HeaderHardwareEstable(
+    diagnostico: DiagnosticoSistema,
     onEscanear: () -> Unit,
     onGenerarAcciones: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Acciones Preventivas Recomendadas",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Button(
-                onClick = onEscanear,
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Escanear Sensores de Hardware y Uso")
+                Column {
+                    Text(
+                        text = "Diagnóstico Preventivo",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Actualizado: ${diagnostico.fechaFormateada}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                }
+                Surface(
+                    color = diagnostico.nivelRiesgo.colorFondo,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = diagnostico.nivelRiesgo.etiqueta,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = diagnostico.nivelRiesgo.colorTexto
+                    )
+                }
             }
-            OutlinedButton(
-                onClick = onGenerarAcciones,
-                modifier = Modifier.fillMaxWidth()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Agregar Tareas de Cuidado al Checklist")
+                Button(
+                    onClick = onEscanear,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Escanear")
+                }
+
+                OutlinedButton(
+                    onClick = onGenerarAcciones,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Checklist")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FilaDato(etiqueta: String, valor: String, esAlerta: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+private fun TarjetaBateriaEstable(bateria: BateriaInfo) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Text(
-            text = etiqueta,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.45f)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = valor,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            color = if (esAlerta) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-        )
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Batería y Energía",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { bateria.nivelPorcentaje / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = if (bateria.nivelPorcentaje <= 20) Color(0xFFD32F2F) else Color(0xFF388E3C)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Nivel: ${bateria.nivelPorcentaje}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (bateria.estaCargando) "Cargando (${bateria.fuenteEnergia})" else "En descarga",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (bateria.estaCargando) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(text = "Temperatura", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = "${bateria.temperaturaCelsius} °C",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (bateria.temperaturaAlerta) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Column {
+                    Text(text = "Voltaje", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = "${bateria.voltajeMv} mV (${bateria.voltajeVoltios} V)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column {
+                    Text(text = "Fuente", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = bateria.fuenteEnergia,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaRamEstable(ram: RamInfo) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Memoria RAM",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { ram.porcentajeUsado / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = if (ram.ramAlerta) Color(0xFFD32F2F) else MaterialTheme.colorScheme.primary
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Uso: ${ram.porcentajeUsado}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${ram.usadaMb} MB usados / ${ram.totalMb} MB total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "RAM disponible para apps: ${ram.disponibleMb} MB",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (ram.ramAlerta) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun TarjetaAlmacenamientoEstable(almacenamiento: AlmacenamientoInfo) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Almacenamiento Interno",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { almacenamiento.porcentajeUsado / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = if (almacenamiento.almacenamientoAlerta) Color(0xFFD32F2F) else MaterialTheme.colorScheme.secondary
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Ocupado: ${almacenamiento.porcentajeUsado}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${almacenamiento.usadoGb} GB usados / ${almacenamiento.totalGb} GB",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "Espacio libre para el usuario: ${almacenamiento.libreGb} GB",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (almacenamiento.almacenamientoAlerta) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun TarjetaSensoresEstable(sensores: InventarioSensores) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Sensores Físicos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "${sensores.cantidadSensores} sensores · ${sensores.consumoTotalSensoresMa} mA",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
+            Text(
+                text = "Listado de componentes de hardware y consumo teórico declarado por el fabricante en miliamperios (mA):",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            HorizontalDivider()
+
+            sensores.sensores.take(8).forEach { sensor ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = sensor.nombre,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${sensor.tipo} · ${sensor.fabricante}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = "${String.format(Locale.US, "%.2f", sensor.consumoMa)} mA",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            if (sensores.sensores.size > 8) {
+                Text(
+                    text = "... y ${sensores.sensores.size - 8} sensores adicionales disponibles en el dispositivo.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaAccionGuardarRoom(
+    diagnostico: DiagnosticoSistema,
+    totalGuardados: Int,
+    onGuardar: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Persistencia Local ACID (Room SQLite)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = "Permite registrar una instantánea de batería (${diagnostico.bateria.nivelPorcentaje}%), RAM (${diagnostico.ram.porcentajeUsado}%), almacenamiento (${diagnostico.almacenamiento.porcentajeUsado}%) y sensores en la base de datos tiotec_database.db.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+
+            Button(
+                onClick = onGuardar,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Guardar Diagnóstico en Room (SQLite)")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ItemHistorialDiagnostico(
+    registro: DiagnosticoHardwareRegistro,
+    onSincronizar: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = registro.fechaRegistro,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "ID: ${registro.id}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    color = if (registro.sincronizadoRemoto) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (registro.sincronizadoRemoto) Icons.Default.Check else Icons.Default.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (registro.sincronizadoRemoto) "En Spring Boot" else "Pendiente Local",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Batería: ${registro.nivelBateria}% (${registro.temperaturaBateria} °C) · RAM: ${registro.ramTotalMb - registro.ramDisponibleMb} MB / ${registro.ramTotalMb} MB · Sensores: ${registro.totalSensores}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (!registro.sincronizadoRemoto) {
+                OutlinedButton(
+                    onClick = onSincronizar,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Subir a Spring Boot", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaSpringBootRetrofit(
+    urlServidor: String,
+    onUrlChange: (String) -> Unit,
+    sincronizando: Boolean,
+    onSubirActual: () -> Unit,
+    onConsultar: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Integración REST Spring Boot + Retrofit",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
+                text = "Conecta la app Android con los endpoints /api/v1/diagnosticos de Spring Boot usando Retrofit y OkHttp.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedTextField(
+                value = urlServidor,
+                onValueChange = onUrlChange,
+                label = { Text("URL Base Servidor Spring Boot") },
+                placeholder = { Text("http://10.0.2.2:8080/") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                text = "Nota: En emulador Android oficial, 10.0.2.2 representa el localhost de tu PC.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            if (sincronizando) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Comunicando con Spring Boot...", style = MaterialTheme.typography.bodySmall)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSubirActual,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Subir Actual")
+                    }
+
+                    OutlinedButton(
+                        onClick = onConsultar,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Consultar")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TarjetaResumenBienestar(bienestar: MetricasBienestarDigital) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Bienestar Digital",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Tiempo total de pantalla hoy: ${bienestar.horasTotales} horas (${bienestar.minutosRestantes} minutos)",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "Estado: ${bienestar.recomendacion}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ItemAppUso(app: AppUsoInfo) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = app.nombreApp, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(text = app.paquete, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(text = app.tiempoFormateado, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        }
     }
 }

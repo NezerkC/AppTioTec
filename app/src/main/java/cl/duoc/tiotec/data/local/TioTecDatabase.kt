@@ -14,14 +14,16 @@ import androidx.room.RoomDatabase
         DispositivoEntity::class,
         AccionChecklistEntity::class,
         EvaluacionEntity::class,
-        SolicitudAsistenciaEntity::class
+        SolicitudAsistenciaEntity::class,
+        DiagnosticoHardwareEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class TioTecDatabase : RoomDatabase() {
 
     abstract fun tioTecDao(): TioTecDao
+    abstract fun diagnosticoHardwareDao(): DiagnosticoHardwareDao
 
     companion object {
         @Volatile

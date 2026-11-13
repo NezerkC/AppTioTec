@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -16,9 +19,32 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePropsFile = rootProject.file("keystore.properties")
+            if (keystorePropsFile.exists()) {
+                val properties = Properties().apply {
+                    keystorePropsFile.inputStream().use { stream ->
+                        load(stream)
+                    }
+                }
+                storeFile = file(properties.getProperty("storeFile", "release-tiotec.jks"))
+                storePassword = properties.getProperty("storePassword")
+                keyAlias = properties.getProperty("keyAlias")
+                keyPassword = properties.getProperty("keyPassword")
+            } else {
+                storeFile = file("release-tiotec.jks")
+                storePassword = "TioTecRelease2026!"
+                keyAlias = "tiotec_release"
+                keyPassword = "TioTecRelease2026!"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -91,4 +117,11 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.room.ktx)
   ksp(libs.androidx.room.compiler)
+
+  // Retrofit, OkHttp y Gson para consumo de Spring Boot API
+  implementation(libs.retrofit.core)
+  implementation(libs.retrofit.converter.gson)
+  implementation(libs.okhttp.core)
+  implementation(libs.okhttp.logging)
+  implementation(libs.gson)
 }
