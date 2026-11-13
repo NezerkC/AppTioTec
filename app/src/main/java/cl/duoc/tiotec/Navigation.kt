@@ -185,7 +185,9 @@ fun MainNavigation(
                     CuidadoTechScreen(
                         state = state,
                         onEscanear = { ctx -> viewModel.ejecutarEscaneoMantenimiento(ctx) },
-                        onGenerarAccionesChecklist = { viewModel.generarAccionesCuidadoEnChecklist() }
+                        onGenerarAccionesChecklist = { viewModel.generarAccionesCuidadoEnChecklist() },
+                        onRefrescarEnVivo = { ctx -> viewModel.refrescarTelemetriaEnVivo(ctx) },
+                        onAlternarEnVivo = { viewModel.alternarMonitoreoEnVivo() }
                     )
                 }
                 SeccionNavegacion.EVALUAR -> {
