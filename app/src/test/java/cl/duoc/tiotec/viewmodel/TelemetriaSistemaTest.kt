@@ -1,14 +1,14 @@
 package cl.duoc.tiotec.viewmodel
 
-import cl.duoc.tiotec.model.CamaraHardwareInfo
-import cl.duoc.tiotec.model.ConsumoPropiaApp
-import cl.duoc.tiotec.model.EstadoGlobalHardware
-import cl.duoc.tiotec.model.FlujoEnergeticoDispositivo
-import cl.duoc.tiotec.model.InventarioHardware
+import cl.duoc.tiotec.model.AlmacenamientoInfo
+import cl.duoc.tiotec.model.BateriaInfo
+import cl.duoc.tiotec.model.DiagnosticoHardwareRegistro
+import cl.duoc.tiotec.model.DiagnosticoSistema
+import cl.duoc.tiotec.model.InventarioSensores
 import cl.duoc.tiotec.model.NivelRiesgo
-import cl.duoc.tiotec.model.PantallaHardwareInfo
+import cl.duoc.tiotec.model.RamInfo
 import cl.duoc.tiotec.model.SensorHardwareInfo
-import cl.duoc.tiotec.model.TelemetriaSistema
+import cl.duoc.tiotec.nativo.TelemetriaSistemaHelper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,249 +17,113 @@ import org.junit.Test
 class TelemetriaSistemaTest {
 
     @Test
-    fun estadoGlobalHardware_calculaPorcentajeRamYAlertaCorrectamente() {
-        val normal = EstadoGlobalHardware(
-            ramTotalMb = 4096L,
-            ramDisponibleMb = 2048L,
-            memoriaBajaSistema = false
-        )
-
-        assertEquals(2048L, normal.ramUsadaMb)
-        assertEquals(50, normal.porcentajeRamUsado)
+    fun ramInfo_calculaUsoYAlertasCorrectamente() {
+        val normal = RamInfo(totalMb = 4096L, disponibleMb = 2048L, memoriaBajaSistema = false)
+        assertEquals(2048L, normal.usadaMb)
+        assertEquals(50, normal.porcentajeUsado)
         assertFalse(normal.ramAlerta)
 
-        val ramAltaPorPorcentaje = EstadoGlobalHardware(
-            ramTotalMb = 4000L,
-            ramDisponibleMb = 400L,
-            memoriaBajaSistema = false
-        )
+        val critico = RamInfo(totalMb = 4000L, disponibleMb = 400L, memoriaBajaSistema = false)
+        assertEquals(3600L, critico.usadaMb)
+        assertEquals(90, critico.porcentajeUsado)
+        assertTrue(critico.ramAlerta)
 
-        assertEquals(3600L, ramAltaPorPorcentaje.ramUsadaMb)
-        assertEquals(90, ramAltaPorPorcentaje.porcentajeRamUsado)
-        assertTrue(ramAltaPorPorcentaje.ramAlerta)
-
-        val ramBajaPorSistema = EstadoGlobalHardware(
-            ramTotalMb = 4096L,
-            ramDisponibleMb = 2048L,
-            memoriaBajaSistema = true
-        )
-
-        assertTrue(ramBajaPorSistema.ramAlerta)
+        val memoriaBaja = RamInfo(totalMb = 4096L, disponibleMb = 2048L, memoriaBajaSistema = true)
+        assertTrue(memoriaBaja.ramAlerta)
     }
 
     @Test
-    fun flujoEnergetico_calculaPotenciaWattsYDireccionFlujo() {
-        val descargaNormal = FlujoEnergeticoDispositivo(
-            corrienteInstantaneaMa = -500,
-            voltajeMv = 4000,
+    fun bateriaInfo_calculaVoltajeYAlertaTemperatura() {
+        val normal = BateriaInfo(
+            nivelPorcentaje = 80,
+            temperaturaCelsius = 31.5f,
+            voltajeMv = 4120,
             estaCargando = false
         )
+        assertFalse(normal.temperaturaAlerta)
+        assertEquals(4.12, normal.voltajeVoltios, 0.01)
 
-        assertEquals(2.0, descargaNormal.potenciaWatts, 0.01)
-        assertEquals("Salida (Descarga)", descargaNormal.direccionFlujo)
-        assertFalse(descargaNormal.descargaAltaAlerta)
-
-        val descargaAlta = FlujoEnergeticoDispositivo(
-            corrienteInstantaneaMa = -1000,
-            voltajeMv = 3850,
-            estaCargando = false
-        )
-
-        assertEquals(3.85, descargaAlta.potenciaWatts, 0.01)
-        assertEquals("Salida (Descarga)", descargaAlta.direccionFlujo)
-        assertTrue(descargaAlta.descargaAltaAlerta)
-
-        val cargando = FlujoEnergeticoDispositivo(
-            corrienteInstantaneaMa = 1500,
+        val caliente = BateriaInfo(
+            nivelPorcentaje = 95,
+            temperaturaCelsius = 42.0f,
             voltajeMv = 4200,
             estaCargando = true
         )
-
-        assertEquals(6.3, cargando.potenciaWatts, 0.01)
-        assertEquals("Entrada (Carga)", cargando.direccionFlujo)
-        assertFalse(cargando.descargaAltaAlerta)
+        assertTrue(caliente.temperaturaAlerta)
+        assertEquals(4.2, caliente.voltajeVoltios, 0.01)
     }
 
     @Test
-    fun consumoPropiaApp_calculaPorcentajeHeapYSandboxNota() {
-        val consumo = ConsumoPropiaApp(
-            pidProceso = 2450,
-            uidAplicacion = 10200,
-            heapUsadoMb = 64.0,
-            heapAsignadoMb = 128.0,
-            heapMaximoMb = 256.0,
-            memoriaPssTotalMb = 96.5,
-            tiempoCpuMs = 1800L,
-            hilosActivos = 18
-        )
+    fun almacenamientoInfo_calculaEspacioUsadoYPorcentaje() {
+        val storage = AlmacenamientoInfo(totalGb = 128.0, libreGb = 32.0)
+        assertEquals(96.0, storage.usadoGb, 0.1)
+        assertEquals(75, storage.porcentajeUsado)
+        assertFalse(storage.almacenamientoAlerta)
 
-        assertEquals(25, consumo.porcentajeHeapUsado)
-
-        val telemetria = TelemetriaSistema(consumoApp = consumo)
-        assertTrue(
-            telemetria.notaSandboxAndroid.contains(
-                "Desde Android 8.0, el aislamiento del sistema (sandbox) no permite leer las métricas de otras aplicaciones."
-            )
-        )
+        val lleno = AlmacenamientoInfo(totalGb = 100.0, libreGb = 10.0)
+        assertEquals(90.0, lleno.usadoGb, 0.1)
+        assertEquals(90, lleno.porcentajeUsado)
+        assertTrue(lleno.almacenamientoAlerta)
     }
 
     @Test
-    fun viewModel_estadoInicialIncluyeTelemetriaYChecklistConsideraAlertaRam() {
-        val vm = TioTecViewModel()
-        val estadoInicial = vm.uiState.value
-
-        assertEquals(50, estadoInicial.telemetriaSistema.estadoGlobal.porcentajeRamUsado)
-        assertFalse(estadoInicial.telemetriaSistema.estadoGlobal.ramAlerta)
-        assertEquals(NivelRiesgo.BAJO, estadoInicial.telemetriaSistema.nivelRiesgo)
-        assertTrue(
-            estadoInicial.telemetriaSistema.notaSandboxAndroid.contains(
-                "Desde Android 8.0, el aislamiento del sistema (sandbox) no permite leer las métricas de otras aplicaciones."
-            )
+    fun inventarioSensores_calculaConsumoTotalMa() {
+        val sensores = listOf(
+            SensorHardwareInfo("Acelerómetro", "Bosch", "Acelerómetro", 0.25f),
+            SensorHardwareInfo("Giroscopio", "Bosch", "Giroscopio", 1.35f),
+            SensorHardwareInfo("Luz", "AMS", "Sensor de Luz", 0.12f)
         )
+        val inventario = InventarioSensores(sensores = sensores)
 
-        val estadoConAlertaRam = estadoInicial.copy(
-            telemetriaSistema = TelemetriaSistema(
-                estadoGlobal = EstadoGlobalHardware(
-                    ramTotalMb = 4096L,
-                    ramDisponibleMb = 400L,
-                    memoriaBajaSistema = true
-                ),
-                nivelRiesgo = NivelRiesgo.ALTO
-            )
-        )
-        assertTrue(estadoConAlertaRam.telemetriaSistema.estadoGlobal.ramAlerta)
-        assertEquals(NivelRiesgo.ALTO, estadoConAlertaRam.telemetriaSistema.nivelRiesgo)
-
-        val totalAntes = estadoInicial.checklist.size
-        vm.generarAccionesCuidadoEnChecklist()
-
-        val checklistDespues = vm.uiState.value.checklist
-        val nuevasAcciones = checklistDespues.drop(totalAntes)
-        assertTrue("El checklist debió incrementarse con las tareas de cuidado", checklistDespues.size > totalAntes)
-        assertFalse(
-            "Sin alerta de RAM activa en el estado inicial, no debe agregarse tarea de optimización de RAM",
-            nuevasAcciones.any { it.titulo.contains("Optimización de RAM") }
-        )
-        assertTrue(vm.uiState.value.mensajeExito?.contains("Checklist") == true)
-    }
-
-    @Test
-    fun flujoEnergetico_exponeMicroamperiosYPotencia() {
-        val defecto = FlujoEnergeticoDispositivo()
-        assertEquals(-250_000, defecto.corrienteInstantaneaUa)
-        assertEquals(-220_000, defecto.corrientePromedioUa)
-        assertEquals(1.0, defecto.potenciaWatts, 0.01)
-
-        val medido = FlujoEnergeticoDispositivo(
-            corrienteInstantaneaMa = -650,
-            corrientePromedioMa = -580,
-            voltajeMv = 4000,
-            estaCargando = false,
-            corrienteInstantaneaUa = -650_000,
-            corrientePromedioUa = -580_000
-        )
-        assertEquals(-650_000, medido.corrienteInstantaneaUa)
-        assertEquals(-580_000, medido.corrientePromedioUa)
-        assertEquals(2.6, medido.potenciaWatts, 0.01)
-    }
-
-    @Test
-    fun estadoGlobal_formateaRedYDetectaAlertaThrottling() {
-        val enKbps = EstadoGlobalHardware(
-            redBajadaKbps = 512.4,
-            redSubidaKbps = 128.0,
-            estadoTermicoCodigo = 0,
-            margenTermico = 0.25f,
-            alertaThrottling = false
-        )
-        assertEquals("512.4 KB/s", enKbps.redBajadaFormateada)
-        assertEquals("128.0 KB/s", enKbps.redSubidaFormateada)
-        assertFalse(enKbps.alertaThrottling)
-
-        val enMbpsConThrottling = EstadoGlobalHardware(
-            redBajadaKbps = 2048.0,
-            redSubidaKbps = 1536.0,
-            estadoTermicoCodigo = 3,
-            estadoTermicoEtiqueta = "Severo · Thermal throttling activo",
-            margenTermico = 0.92f,
-            alertaThrottling = true
-        )
-        assertEquals("2.00 MB/s", enMbpsConThrottling.redBajadaFormateada)
-        assertEquals("1.50 MB/s", enMbpsConThrottling.redSubidaFormateada)
-        assertTrue(enMbpsConThrottling.alertaThrottling)
-    }
-
-    @Test
-    fun inventarioHardware_sumaConsumoTeoricoSensores() {
-        val inventario = InventarioHardware(
-            pantallas = listOf(
-                PantallaHardwareInfo(
-                    id = 0,
-                    nombre = "Pantalla integrada",
-                    resolucion = "1080x2400",
-                    tasaRefrescoHz = 120f,
-                    tasasSoportadasHz = listOf(120f, 60f)
-                )
-            ),
-            camaras = listOf(
-                CamaraHardwareInfo(
-                    id = "0",
-                    ubicacion = "Trasera",
-                    nivelHardware = "Full",
-                    tieneFlash = true
-                )
-            ),
-            sensores = listOf(
-                SensorHardwareInfo(
-                    nombre = "Acelerómetro",
-                    fabricante = "Bosch",
-                    tipo = "android.sensor.accelerometer",
-                    consumoMa = 0.25f,
-                    rangoMaximo = 78.4f,
-                    resolucion = 0.01f
-                ),
-                SensorHardwareInfo(
-                    nombre = "Giroscopio",
-                    fabricante = "Bosch",
-                    tipo = "android.sensor.gyroscope",
-                    consumoMa = 1.35f,
-                    rangoMaximo = 34.9f,
-                    resolucion = 0.001f
-                ),
-                SensorHardwareInfo(
-                    nombre = "Magnetómetro",
-                    fabricante = "AKM",
-                    tipo = "android.sensor.magnetic_field",
-                    consumoMa = 0.123f,
-                    rangoMaximo = 4900f,
-                    resolucion = 0.15f
-                )
-            )
-        )
-
-        assertEquals(1, inventario.pantallas.size)
-        assertEquals(1, inventario.camaras.size)
-        assertEquals(3, inventario.sensores.size)
+        assertEquals(3, inventario.cantidadSensores)
         assertEquals(1.72, inventario.consumoTotalSensoresMa, 0.01)
     }
 
     @Test
-    fun viewModel_alternarMonitoreoEnVivo_cambiaEstado() {
-        val vm = TioTecViewModel()
-        val estadoInicial = vm.uiState.value
+    fun telemetriaHelper_evaluaNivelRiesgoSegunMetricas() {
+        val seguro = TelemetriaSistemaHelper.evaluarNivelRiesgo(
+            bateria = BateriaInfo(nivelPorcentaje = 80, temperaturaCelsius = 30f),
+            ram = RamInfo(totalMb = 4000L, disponibleMb = 2000L),
+            almacenamiento = AlmacenamientoInfo(totalGb = 64.0, libreGb = 32.0)
+        )
+        assertEquals(NivelRiesgo.BAJO, seguro)
 
-        assertTrue(estadoInicial.monitoreoEnVivoActivo)
-        assertTrue(estadoInicial.historialRamPorcentaje.isEmpty())
-        assertTrue(estadoInicial.historialAlmacenamientoPorcentaje.isEmpty())
-        assertTrue(estadoInicial.historialRedBajadaKbps.isEmpty())
-        assertTrue(estadoInicial.historialRedSubidaKbps.isEmpty())
-        assertTrue(estadoInicial.historialCpuAppPorcentaje.isEmpty())
-        assertTrue(estadoInicial.historialPotenciaWatts.isEmpty())
+        val medio = TelemetriaSistemaHelper.evaluarNivelRiesgo(
+            bateria = BateriaInfo(nivelPorcentaje = 15, temperaturaCelsius = 32f),
+            ram = RamInfo(totalMb = 4000L, disponibleMb = 2000L),
+            almacenamiento = AlmacenamientoInfo(totalGb = 64.0, libreGb = 32.0)
+        )
+        assertEquals(NivelRiesgo.MEDIO, medio)
 
-        vm.alternarMonitoreoEnVivo()
-        assertFalse(vm.uiState.value.monitoreoEnVivoActivo)
+        val critico = TelemetriaSistemaHelper.evaluarNivelRiesgo(
+            bateria = BateriaInfo(nivelPorcentaje = 9, temperaturaCelsius = 44f),
+            ram = RamInfo(totalMb = 4000L, disponibleMb = 200L, memoriaBajaSistema = true),
+            almacenamiento = AlmacenamientoInfo(totalGb = 64.0, libreGb = 2.0)
+        )
+        assertEquals(NivelRiesgo.ALTO, critico)
+    }
 
-        vm.alternarMonitoreoEnVivo()
-        assertTrue(vm.uiState.value.monitoreoEnVivoActivo)
+    @Test
+    fun diagnosticoHardwareRegistro_fromDiagnosticoSistema_convierteCampos() {
+        val sistema = DiagnosticoSistema(
+            timestampMs = 1700000000000L,
+            fechaFormateada = "13/11/2026 12:00:00",
+            bateria = BateriaInfo(nivelPorcentaje = 85, temperaturaCelsius = 33f, voltajeMv = 4050),
+            ram = RamInfo(totalMb = 6000L, disponibleMb = 3000L),
+            almacenamiento = AlmacenamientoInfo(totalGb = 128.0, libreGb = 64.0),
+            sensores = InventarioSensores(
+                sensores = listOf(SensorHardwareInfo("Proximidad", "Sensortek", "Sensor", 0.5f))
+            ),
+            nivelRiesgo = NivelRiesgo.BAJO
+        )
+
+        val registro = DiagnosticoHardwareRegistro.fromDiagnosticoSistema(sistema)
+        assertEquals("diag_1700000000000", registro.id)
+        assertEquals(85, registro.nivelBateria)
+        assertEquals(33f, registro.temperaturaBateria)
+        assertEquals(6000L, registro.ramTotalMb)
+        assertEquals(1, registro.totalSensores)
+        assertEquals(0.5, registro.consumoSensoresMa, 0.01)
+        assertFalse(registro.sincronizadoRemoto)
     }
 }
