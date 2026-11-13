@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.content.Context
 import cl.duoc.tiotec.model.DiagnosticoHardware
+import cl.duoc.tiotec.model.DiagnosticoHardwareRegistro
+import cl.duoc.tiotec.model.DiagnosticoSistema
 import cl.duoc.tiotec.model.MetricasBienestarDigital
 import cl.duoc.tiotec.model.TelemetriaSistema
 import cl.duoc.tiotec.nativo.BienestarDigitalHelper
@@ -73,6 +75,10 @@ data class TioTecUiState(
     val diagnosticoHardware: DiagnosticoHardware = DiagnosticoHardware(),
     val metricasBienestar: MetricasBienestarDigital = MetricasBienestarDigital(),
     val telemetriaSistema: TelemetriaSistema = TelemetriaSistema(),
+    val diagnosticoSistema: DiagnosticoSistema = DiagnosticoSistema(),
+    val historialDiagnosticos: List<DiagnosticoHardwareRegistro> = emptyList(),
+    val sincronizandoApi: Boolean = false,
+    val urlServidorSpring: String = "http://10.0.2.2:8080/",
     val historialRamPorcentaje: List<Float> = emptyList(),
     val historialAlmacenamientoPorcentaje: List<Float> = emptyList(),
     val historialRedBajadaKbps: List<Float> = emptyList(),
@@ -164,6 +170,13 @@ class TioTecViewModel(
                     if (lista.isNotEmpty()) {
                         _uiState.update { it.copy(solicitudesAsistencia = lista) }
                     }
+                }
+            }
+        }
+        repository.observarHistorialDiagnosticos()?.let { flow ->
+            viewModelScope.launch {
+                flow.collect { lista ->
+                    _uiState.update { it.copy(historialDiagnosticos = lista) }
                 }
             }
         }
@@ -482,65 +495,47 @@ class TioTecViewModel(
     private fun aplicarTelemetriaConHistorial(
         current: TioTecUiState,
         hardware: DiagnosticoHardware,
-        telemetria: TelemetriaSistema
+        diagnostico: DiagnosticoSistema
     ): TioTecUiState = current.copy(
         diagnosticoHardware = hardware,
-        telemetriaSistema = telemetria,
+        diagnosticoSistema = diagnostico,
         historialRamPorcentaje = agregarMuestra(
             current.historialRamPorcentaje,
-            telemetria.estadoGlobal.porcentajeRamUsado.toFloat()
+            diagnostico.ram.porcentajeUsado.toFloat()
         ),
         historialAlmacenamientoPorcentaje = agregarMuestra(
             current.historialAlmacenamientoPorcentaje,
-            telemetria.estadoGlobal.porcentajeAlmacenamientoUsado.toFloat()
-        ),
-        historialRedBajadaKbps = agregarMuestra(
-            current.historialRedBajadaKbps,
-            telemetria.estadoGlobal.redBajadaKbps.toFloat()
-        ),
-        historialRedSubidaKbps = agregarMuestra(
-            current.historialRedSubidaKbps,
-            telemetria.estadoGlobal.redSubidaKbps.toFloat()
-        ),
-        historialCpuAppPorcentaje = agregarMuestra(
-            current.historialCpuAppPorcentaje,
-            telemetria.consumoApp.porcentajeCpuApp
-        ),
-        historialPotenciaWatts = agregarMuestra(
-            current.historialPotenciaWatts,
-            telemetria.flujoEnergetico.potenciaWatts.toFloat()
+            diagnostico.almacenamiento.porcentajeUsado.toFloat()
         )
     )
 
     /**
-     * Consulta los sensores nativos del dispositivo (BatteryManager, StatFs, UsageStatsManager)
-     * y actualiza el estado de la UI.
+     * Consulta los sensores nativos estables del dispositivo y actualiza el estado de la UI.
      */
     fun cargarCuidadoTecnologico(context: Context) {
         val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
         val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
-        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
+        val diagnostico = TelemetriaSistemaHelper.capturarDiagnostico(context)
         _uiState.update { current ->
             aplicarTelemetriaConHistorial(
                 current = current.copy(metricasBienestar = bienestar),
                 hardware = hardware,
-                telemetria = telemetria
+                diagnostico = diagnostico
             )
         }
     }
 
     /**
-     * Refresca la telemetría del sistema en vivo para gráficos temporales
-     * sin emitir notificaciones ni mensajes Snackbar.
+     * Refresca la telemetría del sistema en vivo para métricas estables.
      */
     fun refrescarTelemetriaEnVivo(context: Context) {
         val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
-        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
+        val diagnostico = TelemetriaSistemaHelper.capturarDiagnostico(context)
         _uiState.update { current ->
             aplicarTelemetriaConHistorial(
                 current = current,
                 hardware = hardware,
-                telemetria = telemetria
+                diagnostico = diagnostico
             )
         }
     }
@@ -558,7 +553,7 @@ class TioTecViewModel(
     fun ejecutarEscaneoMantenimiento(context: Context) {
         val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
         val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
-        val telemetria = TelemetriaSistemaHelper.obtenerTelemetria(context)
+        val diagnostico = TelemetriaSistemaHelper.capturarDiagnostico(context)
         ChequeoMantenimientoHelper.evaluarYNotificar(context, hardware, bienestar)
 
         _uiState.update { current ->
@@ -568,7 +563,87 @@ class TioTecViewModel(
                     mensajeExito = "Escaneo de hardware y bienestar completado con éxito"
                 ),
                 hardware = hardware,
-                telemetria = telemetria
+                diagnostico = diagnostico
+            )
+        }
+    }
+
+    fun onUrlServidorSpringChange(nuevaUrl: String) {
+        _uiState.update { it.copy(urlServidorSpring = nuevaUrl) }
+    }
+
+    /**
+     * Guarda el snapshot de diagnóstico estable en la base de datos local Room (SQLite).
+     */
+    fun guardarDiagnosticoEnRoom() {
+        val state = _uiState.value
+        val registro = DiagnosticoHardwareRegistro.fromDiagnosticoSistema(state.diagnosticoSistema)
+        _uiState.update { it.copy(mensajeExito = "Diagnóstico guardado exitosamente en Room (SQLite)") }
+        viewModelScope.launch {
+            repository.guardarDiagnosticoHardware(registro)
+        }
+    }
+
+    /**
+     * Envía el diagnóstico al backend Spring Boot mediante Retrofit.
+     */
+    fun sincronizarDiagnosticoConBackend(registroId: String? = null) {
+        val state = _uiState.value
+        val registro = if (registroId != null) {
+            state.historialDiagnosticos.find { it.id == registroId }
+                ?: DiagnosticoHardwareRegistro.fromDiagnosticoSistema(state.diagnosticoSistema)
+        } else {
+            DiagnosticoHardwareRegistro.fromDiagnosticoSistema(state.diagnosticoSistema)
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(sincronizandoApi = true) }
+            val resultado = repository.enviarDiagnosticoRemoto(registro)
+            resultado.fold(
+                onSuccess = { dto ->
+                    _uiState.update {
+                        it.copy(
+                            sincronizandoApi = false,
+                            mensajeExito = "Sincronizado con Spring Boot: ${dto.id}"
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            sincronizandoApi = false,
+                            errorFormulario = "Fallo al conectar con Spring Boot (${error.localizedMessage ?: "Verifica que el servidor esté activo"})"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    /**
+     * Consulta los diagnósticos registrados en el servidor Spring Boot vía Retrofit.
+     */
+    fun consultarDiagnosticosRemotos() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(sincronizandoApi = true) }
+            val resultado = repository.obtenerDiagnosticosRemotos()
+            resultado.fold(
+                onSuccess = { listaRemota ->
+                    _uiState.update {
+                        it.copy(
+                            sincronizandoApi = false,
+                            mensajeExito = "Se consultaron ${listaRemota.size} diagnósticos desde Spring Boot"
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            sincronizandoApi = false,
+                            errorFormulario = "Error al consultar Spring Boot (${error.localizedMessage})"
+                        )
+                    }
+                }
             )
         }
     }
@@ -620,12 +695,12 @@ class TioTecViewModel(
             )
         }
 
-        if (state.telemetriaSistema.estadoGlobal.ramAlerta) {
+        if (state.diagnosticoSistema.ram.ramAlerta) {
             nuevasAcciones.add(
                 AccionChecklist(
                     id = "check_ram_${System.currentTimeMillis()}",
                     titulo = "Optimización de RAM: cerrar procesos pesados y revisar apps en segundo plano",
-                    descripcion = "La memoria RAM alcanzó el ${state.telemetriaSistema.estadoGlobal.porcentajeRamUsado}% de uso o el sistema reportó memoria baja.",
+                    descripcion = "La memoria RAM alcanzó el ${state.diagnosticoSistema.ram.porcentajeUsado}% de uso (${state.diagnosticoSistema.ram.usadaMb} MB usados).",
                     categoria = CategoriaSeguridad.ACTUALIZACIONES,
                     prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
@@ -633,26 +708,26 @@ class TioTecViewModel(
             )
         }
 
-        if (state.telemetriaSistema.flujoEnergetico.descargaAltaAlerta) {
+        if (state.diagnosticoSistema.bateria.temperaturaAlerta) {
             nuevasAcciones.add(
                 AccionChecklist(
                     id = "check_energia_${System.currentTimeMillis()}",
-                    titulo = "Flujo energético elevado: reducir brillo y desactivar antenas innecesarias",
-                    descripcion = "Se detectó una descarga de ${state.telemetriaSistema.flujoEnergetico.potenciaWatts} W (${state.telemetriaSistema.flujoEnergetico.corrienteInstantaneaMa} mA).",
+                    titulo = "Temperatura elevada en batería: permitir enfriamiento del dispositivo",
+                    descripcion = "Se detectó temperatura de ${state.diagnosticoSistema.bateria.temperaturaCelsius} °C en la batería.",
                     categoria = CategoriaSeguridad.RESPALDOS,
-                    prioridad = PrioridadAccion.MEDIA,
+                    prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
                 )
             )
         }
 
-        if (state.telemetriaSistema.estadoGlobal.alertaThrottling) {
+        if (state.diagnosticoSistema.almacenamiento.almacenamientoAlerta) {
             nuevasAcciones.add(
                 AccionChecklist(
-                    id = "check_throttling_${System.currentTimeMillis()}",
-                    titulo = "Estrés térmico detectado (PowerManager): pausar tareas pesadas y retirar funda para evitar thermal throttling",
-                    descripcion = "Estado térmico: ${state.telemetriaSistema.estadoGlobal.estadoTermicoEtiqueta}. Reduce carga intensiva de CPU/GPU.",
-                    categoria = CategoriaSeguridad.RESPALDOS,
+                    id = "check_storage_alert_${System.currentTimeMillis()}",
+                    titulo = "Almacenamiento crítico: liberar espacio urgente",
+                    descripcion = "Quedan solo ${state.diagnosticoSistema.almacenamiento.libreGb} GB libres de ${state.diagnosticoSistema.almacenamiento.totalGb} GB.",
+                    categoria = CategoriaSeguridad.ACTUALIZACIONES,
                     prioridad = PrioridadAccion.ALTA,
                     fechaSugerida = fechaHoy
                 )

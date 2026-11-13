@@ -219,7 +219,7 @@ internal fun MainScreenContent(
                     Spacer(Modifier.height(6.dp))
                     val estadoGlobal = state.telemetriaSistema.estadoGlobal
                     Text(
-                        text = "🧠 RAM: ${estadoGlobal.porcentajeRamUsado}% · ⚡ Flujo: ${state.telemetriaSistema.flujoEnergetico.potenciaWatts} W · 🌐 ↓${estadoGlobal.redBajadaFormateada} ↑${estadoGlobal.redSubidaFormateada}",
+                        text = "🧠 RAM: ${estadoGlobal.porcentajeRamUsado}% · ⚡ Flujo: ${state.telemetriaSistema.flujoEnergetico.potenciaWatts} W · 🔋 Batería: ${state.diagnosticoSistema.bateria.nivelPorcentaje}%",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
