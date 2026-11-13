@@ -1,12 +1,19 @@
 package cl.duoc.tiotec.repository
 
 import cl.duoc.tiotec.data.local.AccionChecklistEntity
+import cl.duoc.tiotec.data.local.DiagnosticoHardwareDao
+import cl.duoc.tiotec.data.local.DiagnosticoHardwareEntity
 import cl.duoc.tiotec.data.local.DispositivoEntity
 import cl.duoc.tiotec.data.local.EvaluacionEntity
 import cl.duoc.tiotec.data.local.SolicitudAsistenciaEntity
 import cl.duoc.tiotec.data.local.TioTecDao
+import cl.duoc.tiotec.data.remote.RetrofitClient
+import cl.duoc.tiotec.data.remote.TioTecApiService
+import cl.duoc.tiotec.data.remote.toDomain
+import cl.duoc.tiotec.data.remote.toRequestDto
 import cl.duoc.tiotec.model.AccionChecklist
 import cl.duoc.tiotec.model.CategoriaSeguridad
+import cl.duoc.tiotec.model.DiagnosticoHardwareRegistro
 import cl.duoc.tiotec.model.Dispositivo
 import cl.duoc.tiotec.model.EstadoAsistencia
 import cl.duoc.tiotec.model.EvaluacionSeguridad
@@ -22,8 +29,49 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class TioTecRepository(
-    private val dao: TioTecDao? = null
+    private val dao: TioTecDao? = null,
+    private val diagnosticoDao: DiagnosticoHardwareDao? = null,
+    private val apiService: TioTecApiService? = null
 ) {
+
+    // -------------------------------------------------------------------------
+    // Diagnósticos de Hardware (Room + Retrofit Spring Boot)
+    // -------------------------------------------------------------------------
+
+    fun observarHistorialDiagnosticos(): Flow<List<DiagnosticoHardwareRegistro>>? {
+        return diagnosticoDao?.obtenerHistorialDiagnosticos()?.map { lista ->
+            lista.map { it.toDomain() }
+        }
+    }
+
+    suspend fun guardarDiagnosticoHardware(registro: DiagnosticoHardwareRegistro): Long {
+        return diagnosticoDao?.insertarDiagnostico(DiagnosticoHardwareEntity.fromDomain(registro)) ?: 0L
+    }
+
+    suspend fun marcarDiagnosticoSincronizado(id: String) {
+        diagnosticoDao?.marcarSincronizado(id)
+    }
+
+    suspend fun enviarDiagnosticoRemoto(registro: DiagnosticoHardwareRegistro): Result<DiagnosticoHardwareRegistro> {
+        return try {
+            val servicio = apiService ?: RetrofitClient.crearServicio()
+            val responseDto = servicio.enviarDiagnosticoRemoto(registro.toRequestDto())
+            diagnosticoDao?.marcarSincronizado(registro.id)
+            Result.success(responseDto.toDomain())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun obtenerDiagnosticosRemotos(): Result<List<DiagnosticoHardwareRegistro>> {
+        return try {
+            val servicio = apiService ?: RetrofitClient.crearServicio()
+            val responseList = servicio.obtenerDiagnosticosRemotos()
+            Result.success(responseList.map { it.toDomain() })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Dispositivos (RF-02) con persistencia reactiva en Room
