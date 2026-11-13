@@ -14,3 +14,7 @@ fun coloresDe(nivel: NivelRiesgo): ColoresRiesgo = when (nivel) {
     NivelRiesgo.MEDIO -> ColoresRiesgo(Color(0xFFFFF8E1), Color(0xFFE65100), Color(0xFFF57C00))
     NivelRiesgo.ALTO -> ColoresRiesgo(Color(0xFFFFEBEE), Color(0xFFB71C1C), Color(0xFFD32F2F))
 }
+
+val NivelRiesgo.colorFondo: Color get() = coloresDe(this).fondo
+val NivelRiesgo.colorTexto: Color get() = coloresDe(this).texto
+val NivelRiesgo.colorAcento: Color get() = coloresDe(this).acento

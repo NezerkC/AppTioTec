@@ -22,6 +22,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.content.Context
+import cl.duoc.tiotec.model.DiagnosticoHardware
+import cl.duoc.tiotec.model.MetricasBienestarDigital
+import cl.duoc.tiotec.nativo.BienestarDigitalHelper
+import cl.duoc.tiotec.nativo.ChequeoMantenimientoHelper
+import cl.duoc.tiotec.nativo.HardwareSaludHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -59,7 +65,11 @@ data class TioTecUiState(
     val solicitudesAsistencia: List<SolicitudAsistencia> = emptyList(),
     val categoriaAsistenciaSeleccionada: CategoriaSeguridad = CategoriaSeguridad.RESPALDOS,
     val descripcionAsistenciaInput: String = "",
-    val errorDescripcionAsistencia: String? = null
+    val errorDescripcionAsistencia: String? = null,
+
+    // Cuidado Tecnológico: Hardware / Batería / Almacenamiento y Bienestar Digital (Unidad 3)
+    val diagnosticoHardware: DiagnosticoHardware = DiagnosticoHardware(),
+    val metricasBienestar: MetricasBienestarDigital = MetricasBienestarDigital()
 )
 
 class TioTecViewModel(
@@ -448,4 +458,115 @@ class TioTecViewModel(
             repository.alternarEstadoAsistencia(id, nuevoEstado == EstadoAsistencia.ATENDIDA)
         }
     }
+
+    // =========================================================================
+    // CUIDADO TECNOLÓGICO: Hardware, Batería, Almacenamiento y Bienestar Digital
+    // =========================================================================
+
+    /**
+     * Consulta los sensores nativos del dispositivo (BatteryManager, StatFs, UsageStatsManager)
+     * y actualiza el estado de la UI.
+     */
+    fun cargarCuidadoTecnologico(context: Context) {
+        val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
+        val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
+        _uiState.update { current ->
+            current.copy(
+                diagnosticoHardware = hardware,
+                metricasBienestar = bienestar
+            )
+        }
+    }
+
+    /**
+     * Ejecuta un escaneo en vivo del estado del dispositivo, refresca los datos
+     * y emite una notificación nativa preventiva si detecta alguna anomalía.
+     */
+    fun ejecutarEscaneoMantenimiento(context: Context) {
+        val hardware = HardwareSaludHelper.obtenerDiagnostico(context)
+        val bienestar = BienestarDigitalHelper.obtenerMetricas(context)
+        ChequeoMantenimientoHelper.evaluarYNotificar(context, hardware, bienestar)
+
+        _uiState.update { current ->
+            current.copy(
+                diagnosticoHardware = hardware,
+                metricasBienestar = bienestar,
+                mensajeExito = "Escaneo de hardware y bienestar completado con éxito"
+            )
+        }
+    }
+
+    /**
+     * Incorpora acciones preventivas al Checklist oficial según los riesgos detectados en hardware y uso digital.
+     */
+    fun generarAccionesCuidadoEnChecklist() {
+        val state = _uiState.value
+        val nuevasAcciones = mutableListOf<AccionChecklist>()
+        val fechaHoy = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+
+        if (state.diagnosticoHardware.porcentajeAlmacenamientoUsado >= 80) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_storage_${System.currentTimeMillis()}",
+                    titulo = "Limpieza de almacenamiento: depurar caché y desinstalar apps en desuso",
+                    descripcion = "El almacenamiento supera el 80% de ocupación. Libera espacio para mantener el rendimiento.",
+                    categoria = CategoriaSeguridad.ACTUALIZACIONES,
+                    prioridad = PrioridadAccion.ALTA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (state.diagnosticoHardware.temperaturaBateria >= 38.0f) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_temp_${System.currentTimeMillis()}",
+                    titulo = "Cuidado térmico: evitar carga rápida con funda gruesa y tareas intensivas",
+                    descripcion = "La batería superó los 38°C. Evita usar el teléfono mientras carga y retira fundas térmicas.",
+                    categoria = CategoriaSeguridad.RESPALDOS,
+                    prioridad = PrioridadAccion.ALTA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (state.metricasBienestar.tiempoTotalPantallaMinutos >= 180) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_digital_${System.currentTimeMillis()}",
+                    titulo = "Higiene digital: configurar pausas de pantalla y activar modo descanso nocturno",
+                    descripcion = "Uso de pantalla superior a 3 horas diarias. Se recomienda activar límites y pausas programadas.",
+                    categoria = CategoriaSeguridad.RECUPERACION,
+                    prioridad = PrioridadAccion.MEDIA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        if (nuevasAcciones.isEmpty()) {
+            nuevasAcciones.add(
+                AccionChecklist(
+                    id = "check_mant_${System.currentTimeMillis()}",
+                    titulo = "Chequeo rutinario: reiniciar el teléfono semanalmente para liberar memoria RAM",
+                    descripcion = "Tu dispositivo se encuentra en rangos saludables. Mantén un reinicio periódico preventivo.",
+                    categoria = CategoriaSeguridad.ACTUALIZACIONES,
+                    prioridad = PrioridadAccion.BAJA,
+                    fechaSugerida = fechaHoy
+                )
+            )
+        }
+
+        val listaActualizada = state.checklist + nuevasAcciones
+        _uiState.update {
+            it.copy(
+                checklist = listaActualizada,
+                mensajeExito = "Se agregaron ${nuevasAcciones.size} tarea(s) preventivas a tu Checklist"
+            )
+        }
+
+        viewModelScope.launch {
+            repository.guardarAcciones(nuevasAcciones)
+        }
+    }
 }
+
