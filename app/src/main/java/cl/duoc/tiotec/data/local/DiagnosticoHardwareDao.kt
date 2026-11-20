@@ -23,4 +23,7 @@ interface DiagnosticoHardwareDao {
 
     @Query("DELETE FROM diagnosticos_hardware")
     suspend fun eliminarHistorialDiagnosticos(): Int
+
+    @Query("DELETE FROM diagnosticos_hardware WHERE id = :id")
+    suspend fun eliminarDiagnosticoPorId(id: String): Int
 }

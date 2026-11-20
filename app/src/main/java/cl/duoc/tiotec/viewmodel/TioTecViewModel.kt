@@ -315,6 +315,21 @@ class TioTecViewModel(
                 mensajeExito = "Dispositivo '${nuevo.nombre}' registrado"
             )
         }
+        viewModelScope.launch {
+            repository.guardarDispositivo(nuevo)
+        }
+    }
+
+    fun eliminarDispositivo(id: String) {
+        _uiState.update {
+            it.copy(
+                dispositivos = it.dispositivos.filterNot { d -> d.id == id },
+                mensajeExito = "Dispositivo eliminado"
+            )
+        }
+        viewModelScope.launch {
+            repository.eliminarDispositivo(id)
+        }
     }
 
     fun seleccionarRespuesta(preguntaId: Int, puntaje: Int) {
@@ -397,6 +412,12 @@ class TioTecViewModel(
                 mensajeExito = "Evaluación completada: ${nivelRiesgo.etiqueta}"
             )
         }
+        viewModelScope.launch {
+            repository.guardarEvaluacion(nuevaEval)
+            if (nuevasAcciones.isNotEmpty()) {
+                repository.guardarAcciones(nuevasAcciones)
+            }
+        }
         return true
     }
 
@@ -412,6 +433,12 @@ class TioTecViewModel(
                     if (accion.id == accionId) accion.copy(completada = !accion.completada) else accion
                 }
             )
+        }
+        val nuevoEstado = _uiState.value.checklist.find { it.id == accionId }?.completada
+        if (nuevoEstado != null) {
+            viewModelScope.launch {
+                repository.alternarAccion(accionId, nuevoEstado)
+            }
         }
     }
 
@@ -584,6 +611,13 @@ class TioTecViewModel(
         }
     }
 
+    fun eliminarDiagnosticoEnRoom(id: String) {
+        _uiState.update { it.copy(mensajeExito = "Diagnóstico eliminado de Room") }
+        viewModelScope.launch {
+            repository.eliminarDiagnosticoHardware(id)
+        }
+    }
+
     /**
      * Envía el diagnóstico al backend Spring Boot mediante Retrofit.
      */
@@ -598,7 +632,7 @@ class TioTecViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(sincronizandoApi = true) }
-            val resultado = repository.enviarDiagnosticoRemoto(registro)
+            val resultado = repository.enviarDiagnosticoRemoto(registro, baseUrl = _uiState.value.urlServidorSpring)
             resultado.fold(
                 onSuccess = { dto ->
                     _uiState.update {
@@ -626,7 +660,7 @@ class TioTecViewModel(
     fun consultarDiagnosticosRemotos() {
         viewModelScope.launch {
             _uiState.update { it.copy(sincronizandoApi = true) }
-            val resultado = repository.obtenerDiagnosticosRemotos()
+            val resultado = repository.obtenerDiagnosticosRemotos(baseUrl = _uiState.value.urlServidorSpring)
             resultado.fold(
                 onSuccess = { listaRemota ->
                     _uiState.update {

@@ -14,6 +14,9 @@ object RetrofitClient {
     const val BASE_URL_DEFECTO = "http://10.0.2.2:8080/"
 
     fun crearServicio(baseUrl: String = BASE_URL_DEFECTO): TioTecApiService {
+        val limpia = baseUrl.trim()
+        val urlNormalizada = if (limpia.endsWith("/")) limpia else "$limpia/"
+
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
@@ -26,7 +29,7 @@ object RetrofitClient {
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(urlNormalizada)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

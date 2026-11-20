@@ -166,7 +166,8 @@ fun MainNavigation(
                         onGuardarEnRoom = { viewModel.guardarDiagnosticoEnRoom() },
                         onSincronizarConBackend = { id -> viewModel.sincronizarDiagnosticoConBackend(id) },
                         onConsultarRemoto = { viewModel.consultarDiagnosticosRemotos() },
-                        onUrlServidorChange = { url -> viewModel.onUrlServidorSpringChange(url) }
+                        onUrlServidorChange = { url -> viewModel.onUrlServidorSpringChange(url) },
+                        onEliminarEnRoom = { id -> viewModel.eliminarDiagnosticoEnRoom(id) }
                     )
                 }
                 SeccionNavegacion.EVALUAR -> {
@@ -200,7 +201,8 @@ fun MainNavigation(
                         onTipoDispositivoChange = viewModel::onTipoDispositivoChange,
                         onSistemaOperativoChange = viewModel::onSistemaOperativoChange,
                         onFotoDispositivoChange = viewModel::onFotoDispositivoChange,
-                        onRegistrarDispositivo = { viewModel.agregarDispositivo() }
+                        onRegistrarDispositivo = { viewModel.agregarDispositivo() },
+                        onEliminarDispositivo = viewModel::eliminarDispositivo
                     )
                 }
                 SeccionNavegacion.ASISTENCIA -> {
