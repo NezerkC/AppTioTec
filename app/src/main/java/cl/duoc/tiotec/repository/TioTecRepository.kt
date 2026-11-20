@@ -48,13 +48,32 @@ class TioTecRepository(
         return diagnosticoDao?.insertarDiagnostico(DiagnosticoHardwareEntity.fromDomain(registro)) ?: 0L
     }
 
+    suspend fun eliminarDiagnosticoHardware(id: String) {
+        diagnosticoDao?.eliminarDiagnosticoPorId(id)
+    }
+
     suspend fun marcarDiagnosticoSincronizado(id: String) {
         diagnosticoDao?.marcarSincronizado(id)
     }
 
-    suspend fun enviarDiagnosticoRemoto(registro: DiagnosticoHardwareRegistro): Result<DiagnosticoHardwareRegistro> {
+    private fun resolverServicio(baseUrl: String?): TioTecApiService {
+        val urlLimpia = baseUrl?.trim()
+        if (apiService != null && (urlLimpia.isNullOrEmpty() || urlLimpia == RetrofitClient.BASE_URL_DEFECTO)) {
+            return apiService
+        }
+        return if (urlLimpia.isNullOrEmpty()) {
+            RetrofitClient.crearServicio()
+        } else {
+            RetrofitClient.crearServicio(urlLimpia)
+        }
+    }
+
+    suspend fun enviarDiagnosticoRemoto(
+        registro: DiagnosticoHardwareRegistro,
+        baseUrl: String? = null
+    ): Result<DiagnosticoHardwareRegistro> {
         return try {
-            val servicio = apiService ?: RetrofitClient.crearServicio()
+            val servicio = resolverServicio(baseUrl)
             val responseDto = servicio.enviarDiagnosticoRemoto(registro.toRequestDto())
             diagnosticoDao?.marcarSincronizado(registro.id)
             Result.success(responseDto.toDomain())
@@ -63,9 +82,9 @@ class TioTecRepository(
         }
     }
 
-    suspend fun obtenerDiagnosticosRemotos(): Result<List<DiagnosticoHardwareRegistro>> {
+    suspend fun obtenerDiagnosticosRemotos(baseUrl: String? = null): Result<List<DiagnosticoHardwareRegistro>> {
         return try {
-            val servicio = apiService ?: RetrofitClient.crearServicio()
+            val servicio = resolverServicio(baseUrl)
             val responseList = servicio.obtenerDiagnosticosRemotos()
             Result.success(responseList.map { it.toDomain() })
         } catch (e: Exception) {

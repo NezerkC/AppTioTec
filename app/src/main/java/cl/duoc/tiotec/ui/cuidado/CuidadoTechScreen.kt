@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
@@ -34,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -88,7 +90,8 @@ fun CuidadoTechScreen(
     onGuardarEnRoom: () -> Unit = {},
     onSincronizarConBackend: (String?) -> Unit = {},
     onConsultarRemoto: () -> Unit = {},
-    onUrlServidorChange: (String) -> Unit = {}
+    onUrlServidorChange: (String) -> Unit = {},
+    onEliminarEnRoom: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var pestanaSeleccionada by remember { mutableIntStateOf(0) }
@@ -189,7 +192,8 @@ fun CuidadoTechScreen(
                     items(state.historialDiagnosticos) { registro ->
                         ItemHistorialDiagnostico(
                             registro = registro,
-                            onSincronizar = { onSincronizarConBackend(registro.id) }
+                            onSincronizar = { onSincronizarConBackend(registro.id) },
+                            onEliminar = { onEliminarEnRoom(registro.id) }
                         )
                     }
                 }
@@ -623,7 +627,8 @@ private fun TarjetaAccionGuardarRoom(
 @Composable
 private fun ItemHistorialDiagnostico(
     registro: DiagnosticoHardwareRegistro,
-    onSincronizar: () -> Unit
+    onSincronizar: () -> Unit,
+    onEliminar: () -> Unit = {}
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -648,26 +653,35 @@ private fun ItemHistorialDiagnostico(
                     )
                 }
 
-                Surface(
-                    color = if (registro.sincronizadoRemoto) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = if (registro.sincronizadoRemoto) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                        shape = RoundedCornerShape(6.dp)
                     ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (registro.sincronizadoRemoto) Icons.Default.Check else Icons.Default.Send,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (registro.sincronizadoRemoto) "En Spring Boot" else "Pendiente Local",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
+                            )
+                        }
+                    }
+                    IconButton(onClick = onEliminar) {
                         Icon(
-                            imageVector = if (registro.sincronizadoRemoto) Icons.Default.Check else Icons.Default.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (registro.sincronizadoRemoto) "En Spring Boot" else "Pendiente Local",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (registro.sincronizadoRemoto) Color(0xFF2E7D32) else Color(0xFFE65100)
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar de Room",
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
                 }

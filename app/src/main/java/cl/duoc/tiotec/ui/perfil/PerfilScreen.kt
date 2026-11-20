@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -23,6 +24,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
@@ -61,7 +63,8 @@ fun PerfilScreen(
     onSistemaOperativoChange: (String) -> Unit,
     onFotoDispositivoChange: (String?) -> Unit,
     onRegistrarDispositivo: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEliminarDispositivo: (String) -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -104,7 +107,10 @@ fun PerfilScreen(
             }
         }
         items(state.dispositivos, key = { it.id }) { dispositivo ->
-            ItemDispositivo(dispositivo)
+            ItemDispositivo(
+                dispositivo = dispositivo,
+                onEliminar = { onEliminarDispositivo(dispositivo.id) }
+            )
         }
     }
 }
@@ -231,7 +237,10 @@ private fun TarjetaRegistroDispositivo(
 }
 
 @Composable
-private fun ItemDispositivo(dispositivo: Dispositivo) {
+private fun ItemDispositivo(
+    dispositivo: Dispositivo,
+    onEliminar: () -> Unit = {}
+) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
@@ -249,7 +258,11 @@ private fun ItemDispositivo(dispositivo: Dispositivo) {
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Column(modifier = Modifier.padding(start = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
                 Text(
                     text = dispositivo.nombre,
                     style = MaterialTheme.typography.bodyLarge,
@@ -259,6 +272,13 @@ private fun ItemDispositivo(dispositivo: Dispositivo) {
                     text = "${dispositivo.tipo.etiqueta} · ${dispositivo.sistemaOperativo}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onEliminar) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Eliminar dispositivo",
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
         }
