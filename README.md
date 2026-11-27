@@ -36,6 +36,14 @@
 * **Historial Preventivo (RF-06):** Almacenamiento y consulta de diagnósticos históricos persistidos en **Room Database**.
 * **Solicitud de Asistencia Técnica Simulada (Caso 3.2):** Registro de consultas guiadas clasificadas por pilar, validadas con `ValidadorFormularios` (mín. 10 caracteres) y seguimiento de estado (*Pendiente / Atendida*).
 
+### Entrega EP4: microservicio, integración y API externa
+
+* **Microservicio Spring Boot propio** (`backend/`): Spring Boot 4, Spring Data JPA y **H2 persistente en archivo**. CRUD de dispositivos y registro de diagnósticos de hardware, con validación (`@Valid`) y errores 400/404 en JSON.
+* **Integración app ↔ microservicio (CRUD completo):** crear, listar, **editar** y eliminar dispositivos desde *Perfil*. Cada operación se guarda en **Room** y en el **microservicio** mediante **Retrofit**. Al abrir la app se descargan los dispositivos del servidor. Si el servidor no responde, el dato queda en el teléfono y la pantalla lo informa.
+* **API externa con Retrofit (endoflife.date):** muestra qué versiones de Android siguen recibiendo actualizaciones de seguridad e indica en cada dispositivo si su versión tiene soporte. Usa un cliente Retrofit separado y es de solo lectura: no escribe en Room ni en el microservicio.
+* **Pruebas unitarias:** 71 tests en la app (JUnit 4 + corrutinas + fakes) con **88% de cobertura de líneas de la lógica** medida con **Kover**, y 13 tests en el backend (JUnit 5, Mockito y MockMvc).
+* **APK release firmado** con `app/release-tiotec.jks` (alias `tiotec_release`). Copia en [`entrega/`](./entrega/).
+
 ---
 
 ## 3. Reglas de Negocio (RN)
@@ -82,13 +90,83 @@ app/src/main/java/cl/duoc/tiotec/
 
 ---
 
+## 4.1 Endpoints
+
+### Microservicio propio (Spring Boot)
+
+URL base: `http://localhost:8080` desde el PC · `http://10.0.2.2:8080` desde el emulador.
+
+| Método | Endpoint | Descripción | Respuestas |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/dispositivos` | Lista los dispositivos | 200 |
+| `GET` | `/api/v1/dispositivos/{id}` | Obtiene un dispositivo | 200 · 404 |
+| `POST` | `/api/v1/dispositivos` | Crea un dispositivo | 201 · 400 |
+| `PUT` | `/api/v1/dispositivos/{id}` | Actualiza un dispositivo | 200 · 400 · 404 |
+| `DELETE` | `/api/v1/dispositivos/{id}` | Elimina un dispositivo | 204 · 404 |
+| `GET` | `/api/v1/diagnosticos` | Lista los diagnósticos de hardware | 200 |
+| `POST` | `/api/v1/diagnosticos` | Registra un diagnóstico de hardware | 201 · 400 |
+
+Cuerpo de un dispositivo:
+
+```json
+{ "id": "disp_1795813000000", "nombre": "Pixel 8", "tipo": "SMARTPHONE", "sistemaOperativo": "Android 14" }
+```
+
+Estructura del backend:
+
+```text
+backend/src/main/java/cl/duoc/tiotec/backend/
+├── model/          # Entidades JPA: Dispositivo, Diagnostico
+├── repository/     # JpaRepository (acceso a H2 sin SQL manual)
+├── service/        # Lógica de negocio
+├── controller/     # Endpoints REST
+└── exception/      # Manejo centralizado de errores 400/404
+```
+
+### API externa
+
+| Método | Endpoint | Uso en la app |
+| :--- | :--- | :--- |
+| `GET` | `https://endoflife.date/api/v1/products/android/` | Estado de soporte de cada versión de Android (`isEol`, `eolFrom`), mostrado en *Perfil* |
+
+---
+
 ## 5. Instrucciones de Compilación y Ejecución
 
 ### Prerrequisitos
 - Android Studio Ladybug / Meerkat o superior con JDK 17 / 21.
 - Android SDK Platform 34 / 36 instalado.
+- JDK 21 para el microservicio (Maven viene incluido con `mvnw`).
 
-### Pasos para Ejecutar
+### Ejecutar el sistema completo
+1. **Levantar el microservicio** (dejar la terminal abierta):
+   ```powershell
+   cd backend
+   .\mvnw.cmd spring-boot:run
+   ```
+   Queda en `http://localhost:8080`. Consola de la base: `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:file:./data/tiotec`, usuario `sa`, sin contraseña).
+2. **Ejecutar la app** desde Android Studio en un emulador. La app se conecta a `http://10.0.2.2:8080/`. Para un celular físico, cambiar la URL en *Cuidado → Spring Boot API* por la IP del PC.
+3. Abrir **☰ → Perfil** para registrar, editar y eliminar dispositivos.
+
+### Pruebas y cobertura
+```powershell
+.\gradlew testDebugUnitTest          # tests unitarios de la app
+.\gradlew koverHtmlReportDebug       # informe en app/build/reports/kover/htmlDebug/index.html
+.\gradlew koverVerifyDebug           # exige al menos 80% de cobertura
+cd backend; .\mvnw.cmd test          # tests del microservicio
+```
+
+### APK release firmado
+```powershell
+.\gradlew assembleRelease            # app/build/outputs/apk/release/app-release.apk
+```
+- Keystore: `app/release-tiotec.jks` · alias `tiotec_release`.
+- Configuración: bloque `signingConfigs` de `app/build.gradle.kts`.
+- Certificado: `CN=AppTioTec, OU=DuocUC, O=MCmovil, L=Santiago, ST=RM, C=CL`.
+- APK entregado: [`entrega/AppTioTec-v1.0-release.apk`](./entrega/).
+- Captura de la verificación de firma: [`docs/capturas/apk-firmado.png`](./docs/capturas/).
+
+### Pasos originales
 1. **Clonar el repositorio:**
    ```bash
    git clone https://github.com/NezerkC/AppTioTec.git
@@ -117,3 +195,4 @@ app/src/main/java/cl/duoc/tiotec/
 | 📋 **[`02-Requerimientos-y-Reglas-Negocio.md`](./docs/02-Requerimientos-y-Reglas-Negocio.md)** | Especificación de Requerimientos Funcionales (`RF-01` a `RF-06`), Reglas de Negocio (`RN-01` a `RN-04`) y diagramas. |
 | 🛠️ **[`03-Guia-Companero-MVVM-y-Defensa.md`](./docs/03-Guia-Companero-MVVM-y-Defensa.md)** | Guía paso a paso para clonar y abrir en Android Studio, explicación de capas MVVM y **preguntas/respuestas para la defensa oral**. |
 | 📌 **[`04-Planificacion-GitHub-Projects-y-CI.md`](./docs/04-Planificacion-GitHub-Projects-y-CI.md)** | Automatización del tablero en **GitHub Projects** y pipeline **Android CI/CD** (`.github/workflows/`). |
+| 📚 **[`06-Guia-Estudio-EP4-EP5.md`](./docs/06-Guia-Estudio-EP4-EP5.md)** | Microservicio, integración, API externa, tests, firma del APK, modificación en vivo y preguntas de la defensa. |
