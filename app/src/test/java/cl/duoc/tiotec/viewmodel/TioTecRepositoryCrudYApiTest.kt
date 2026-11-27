@@ -9,7 +9,11 @@ import cl.duoc.tiotec.data.local.SolicitudAsistenciaEntity
 import cl.duoc.tiotec.data.local.TioTecDao
 import cl.duoc.tiotec.data.remote.DiagnosticoHardwareRequestDto
 import cl.duoc.tiotec.data.remote.DiagnosticoHardwareResponseDto
+import cl.duoc.tiotec.data.remote.DispositivoDto
 import cl.duoc.tiotec.data.remote.TioTecApiService
+import okhttp3.ResponseBody.Companion.toResponseBody
+import retrofit2.HttpException
+import retrofit2.Response
 import cl.duoc.tiotec.model.DiagnosticoHardwareRegistro
 import cl.duoc.tiotec.model.NivelRiesgo
 import cl.duoc.tiotec.model.TipoDispositivo
@@ -36,183 +40,6 @@ import org.junit.Test
 class TioTecRepositoryCrudYApiTest {
 
     private val testDispatcher = StandardTestDispatcher()
-
-    private class FakeTioTecDao : TioTecDao {
-        val dispositivos = mutableListOf<DispositivoEntity>()
-        val acciones = mutableListOf<AccionChecklistEntity>()
-        val evaluaciones = mutableListOf<EvaluacionEntity>()
-        val solicitudes = mutableListOf<SolicitudAsistenciaEntity>()
-
-        private val dispositivosFlow = MutableStateFlow<List<DispositivoEntity>>(emptyList())
-        private val checklistFlow = MutableStateFlow<List<AccionChecklistEntity>>(emptyList())
-        private val evaluacionesFlow = MutableStateFlow<List<EvaluacionEntity>>(emptyList())
-        private val solicitudesFlow = MutableStateFlow<List<SolicitudAsistenciaEntity>>(emptyList())
-
-        override fun obtenerTodosLosDispositivos(): Flow<List<DispositivoEntity>> = dispositivosFlow.asStateFlow()
-
-        override suspend fun insertarDispositivo(dispositivo: DispositivoEntity): Long {
-            dispositivos.removeAll { it.id == dispositivo.id }
-            dispositivos.add(dispositivo)
-            dispositivosFlow.value = dispositivos.toList()
-            return 1L
-        }
-
-        override suspend fun insertarDispositivos(dispositivos: List<DispositivoEntity>): List<Long> {
-            dispositivos.forEach { insertarDispositivo(it) }
-            return dispositivos.map { 1L }
-        }
-
-        override suspend fun eliminarDispositivo(dispositivo: DispositivoEntity): Int {
-            return eliminarDispositivoPorId(dispositivo.id)
-        }
-
-        override suspend fun eliminarDispositivoPorId(id: String): Int {
-            val removed = dispositivos.removeAll { it.id == id }
-            dispositivosFlow.value = dispositivos.toList()
-            return if (removed) 1 else 0
-        }
-
-        override fun obtenerChecklist(): Flow<List<AccionChecklistEntity>> = checklistFlow.asStateFlow()
-
-        override suspend fun insertarAccion(accion: AccionChecklistEntity): Long {
-            acciones.removeAll { it.id == accion.id }
-            acciones.add(accion)
-            checklistFlow.value = acciones.toList()
-            return 1L
-        }
-
-        override suspend fun insertarAcciones(accionesNuevas: List<AccionChecklistEntity>): List<Long> {
-            accionesNuevas.forEach { insertarAccion(it) }
-            return accionesNuevas.map { 1L }
-        }
-
-        override suspend fun actualizarAccion(accion: AccionChecklistEntity): Int {
-            insertarAccion(accion)
-            return 1
-        }
-
-        override suspend fun alternarEstadoAccion(id: String, completada: Boolean): Int {
-            val index = acciones.indexOfFirst { it.id == id }
-            if (index != -1) {
-                acciones[index] = acciones[index].copy(completada = completada)
-                checklistFlow.value = acciones.toList()
-                return 1
-            }
-            return 0
-        }
-
-        override suspend fun eliminarAccion(accion: AccionChecklistEntity): Int {
-            val removed = acciones.removeAll { it.id == accion.id }
-            checklistFlow.value = acciones.toList()
-            return if (removed) 1 else 0
-        }
-
-        override fun obtenerHistorialEvaluaciones(): Flow<List<EvaluacionEntity>> = evaluacionesFlow.asStateFlow()
-
-        override suspend fun insertarEvaluacion(evaluacion: EvaluacionEntity): Long {
-            evaluaciones.removeAll { it.id == evaluacion.id }
-            evaluaciones.add(0, evaluacion)
-            evaluacionesFlow.value = evaluaciones.toList()
-            return 1L
-        }
-
-        override suspend fun insertarEvaluaciones(evaluacionesNuevas: List<EvaluacionEntity>): List<Long> {
-            evaluacionesNuevas.forEach { insertarEvaluacion(it) }
-            return evaluacionesNuevas.map { 1L }
-        }
-
-        override fun obtenerUltimaEvaluacion(): Flow<EvaluacionEntity?> = MutableStateFlow(evaluaciones.firstOrNull())
-
-        override fun obtenerSolicitudesAsistencia(): Flow<List<SolicitudAsistenciaEntity>> = solicitudesFlow.asStateFlow()
-
-        override suspend fun insertarSolicitudAsistencia(solicitud: SolicitudAsistenciaEntity): Long {
-            solicitudes.add(solicitud)
-            solicitudesFlow.value = solicitudes.toList()
-            return 1L
-        }
-
-        override suspend fun actualizarEstadoAsistencia(id: String, estado: String): Int {
-            val index = solicitudes.indexOfFirst { it.id == id }
-            if (index != -1) {
-                solicitudes[index] = solicitudes[index].copy(estado = estado)
-                solicitudesFlow.value = solicitudes.toList()
-                return 1
-            }
-            return 0
-        }
-    }
-
-    private class FakeDiagnosticoHardwareDao : DiagnosticoHardwareDao {
-        val diagnosticos = mutableListOf<DiagnosticoHardwareEntity>()
-        private val historialFlow = MutableStateFlow<List<DiagnosticoHardwareEntity>>(emptyList())
-
-        override fun obtenerHistorialDiagnosticos(): Flow<List<DiagnosticoHardwareEntity>> = historialFlow.asStateFlow()
-
-        override suspend fun insertarDiagnostico(diagnostico: DiagnosticoHardwareEntity): Long {
-            diagnosticos.removeAll { it.id == diagnostico.id }
-            diagnosticos.add(0, diagnostico)
-            historialFlow.value = diagnosticos.toList()
-            return 1L
-        }
-
-        override suspend fun marcarSincronizado(id: String): Int {
-            val index = diagnosticos.indexOfFirst { it.id == id }
-            if (index != -1) {
-                diagnosticos[index] = diagnosticos[index].copy(sincronizadoRemoto = true)
-                historialFlow.value = diagnosticos.toList()
-                return 1
-            }
-            return 0
-        }
-
-        override suspend fun eliminarHistorialDiagnosticos(): Int {
-            val count = diagnosticos.size
-            diagnosticos.clear()
-            historialFlow.value = emptyList()
-            return count
-        }
-
-        override suspend fun eliminarDiagnosticoPorId(id: String): Int {
-            val removed = diagnosticos.removeAll { it.id == id }
-            historialFlow.value = diagnosticos.toList()
-            return if (removed) 1 else 0
-        }
-    }
-
-    private class FakeTioTecApiService : TioTecApiService {
-        var llamadasEnviar = 0
-        var llamadasObtener = 0
-
-        override suspend fun obtenerDiagnosticosRemotos(): List<DiagnosticoHardwareResponseDto> {
-            llamadasObtener++
-            return emptyList()
-        }
-
-        override suspend fun enviarDiagnosticoRemoto(request: DiagnosticoHardwareRequestDto): DiagnosticoHardwareResponseDto {
-            llamadasEnviar++
-            return DiagnosticoHardwareResponseDto(
-                id = request.id,
-                fechaRegistro = request.fechaRegistro,
-                timestampMs = request.timestampMs,
-                nivelBateria = request.nivelBateria,
-                estaCargando = request.estaCargando,
-                temperaturaBateria = request.temperaturaBateria,
-                voltajeBateria = request.voltajeBateria,
-                saludBateria = request.saludBateria,
-                fuenteEnergia = request.fuenteEnergia,
-                almacenamientoTotalGb = request.almacenamientoTotalGb,
-                almacenamientoLibreGb = request.almacenamientoLibreGb,
-                porcentajeAlmacenamientoUsado = request.porcentajeAlmacenamientoUsado,
-                ramTotalMb = request.ramTotalMb,
-                ramDisponibleMb = request.ramDisponibleMb,
-                totalSensores = request.totalSensores,
-                consumoSensoresMa = request.consumoSensoresMa,
-                nivelRiesgo = request.nivelRiesgo,
-                recomendacion = request.recomendacion,
-                sincronizadoRemoto = true
-            )
-        }
-    }
 
     @Before
     fun setUp() {
@@ -267,9 +94,10 @@ class TioTecRepositoryCrudYApiTest {
 
         assertTrue(resultado)
         assertEquals(1, fakeDao.evaluaciones.size)
-        assertTrue("Debió guardarse al menos una acción generada", fakeDao.acciones.isNotEmpty())
+        val generadas = fakeDao.acciones.filter { it.id.startsWith("chk_1_") }
+        assertEquals("Debió guardarse la acción generada por la pregunta 1", 1, generadas.size)
 
-        val accion = fakeDao.acciones.first()
+        val accion = generadas.first()
         assertEquals(false, accion.completada)
 
         vm.alternarEstadoAccion(accion.id)
