@@ -14,6 +14,7 @@ import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.model.SolicitudAsistencia
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
+import cl.duoc.tiotec.model.VersionAndroid
 import cl.duoc.tiotec.repository.PreferenciasDataStore
 import cl.duoc.tiotec.repository.TioTecRepository
 import cl.duoc.tiotec.validation.ValidadorFormularios
@@ -59,6 +60,17 @@ data class TioTecUiState(
     val sistemaOperativoInput: String = "",
     val errorSistemaOperativo: String? = null,
     val fotoDispositivoInput: String? = null, // ruta de la foto tomada con la cámara (#9)
+    val dispositivoEnEdicionId: String? = null, // null = registrando uno nuevo; con id = editando
+
+    // Estado de la conexión con el microservicio Spring Boot (dispositivos)
+    val servidorDispositivosOk: Boolean? = null, // null = aún no se intenta
+    val estadoServidorDispositivos: String? = null,
+    val sincronizandoDispositivos: Boolean = false,
+
+    // API externa endoflife.date: versiones de Android y su soporte
+    val versionesAndroid: List<VersionAndroid> = emptyList(),
+    val cargandoSoporteAndroid: Boolean = false,
+    val errorSoporteAndroid: String? = null,
 
     // Cuestionario (RF-03 / RF-04)
     val preguntasSinResponder: Set<Int> = emptySet(),
@@ -93,15 +105,23 @@ class TioTecViewModel(
     private val preferenciasDataStore: PreferenciasDataStore? = null
 ) : ViewModel() {
 
+    /*
+     * Con Room, las listas parten vacías y se llenan con lo que hay guardado en la base.
+     * Sin Room (tests y previews) se usan los datos de ejemplo en memoria.
+     * Antes la app mostraba los datos de ejemplo y estos desaparecían al guardar el primer
+     * registro real; ahora lo que se ve es exactamente lo que hay en Room.
+     */
+    private val usaRoom = repository.tieneRoom
+
     private val _uiState = MutableStateFlow(
         TioTecUiState(
             usuario = repository.obtenerPerfilInicial(),
-            dispositivos = repository.obtenerDispositivosIniciales(),
+            dispositivos = if (usaRoom) emptyList() else repository.obtenerDispositivosIniciales(),
             preguntas = repository.obtenerPreguntasEvaluacion(),
             checklist = repository.obtenerChecklistInicial(),
-            historial = repository.obtenerHistorialInicial(),
-            ultimaEvaluacion = repository.obtenerHistorialInicial().firstOrNull(),
-            solicitudesAsistencia = repository.obtenerSolicitudesAsistenciaIniciales()
+            historial = if (usaRoom) emptyList() else repository.obtenerHistorialInicial(),
+            ultimaEvaluacion = if (usaRoom) null else repository.obtenerHistorialInicial().firstOrNull(),
+            solicitudesAsistencia = if (usaRoom) emptyList() else repository.obtenerSolicitudesAsistenciaIniciales()
         )
     )
     val uiState: StateFlow<TioTecUiState> = _uiState.asStateFlow()
@@ -132,19 +152,25 @@ class TioTecViewModel(
         }
 
         // Observación reactiva desde Room (Actividad 2.5)
+        // La lista en pantalla = lo que hay en Room (también cuando queda vacía).
         repository.observarDispositivos()?.let { flow ->
             viewModelScope.launch {
                 flow.collect { lista ->
-                    if (lista.isNotEmpty()) {
-                        _uiState.update { it.copy(dispositivos = lista) }
-                    }
+                    _uiState.update { it.copy(dispositivos = lista) }
                 }
             }
         }
         repository.observarChecklist()?.let { flow ->
             viewModelScope.launch {
+                var primeraLectura = true
                 flow.collect { lista ->
-                    if (lista.isNotEmpty()) {
+                    if (lista.isEmpty() && primeraLectura) {
+                        // Primera vez que se abre la app: se guardan las acciones sugeridas en Room
+                        // para que marcarlas como completadas también quede guardado.
+                        primeraLectura = false
+                        repository.guardarAcciones(repository.obtenerChecklistInicial())
+                    } else {
+                        primeraLectura = false
                         _uiState.update { it.copy(checklist = lista) }
                     }
                 }
@@ -153,13 +179,11 @@ class TioTecViewModel(
         repository.observarHistorial()?.let { flow ->
             viewModelScope.launch {
                 flow.collect { lista ->
-                    if (lista.isNotEmpty()) {
-                        _uiState.update {
-                            it.copy(
-                                historial = lista,
-                                ultimaEvaluacion = lista.firstOrNull()
-                            )
-                        }
+                    _uiState.update {
+                        it.copy(
+                            historial = lista,
+                            ultimaEvaluacion = lista.firstOrNull()
+                        )
                     }
                 }
             }
@@ -167,11 +191,14 @@ class TioTecViewModel(
         repository.observarSolicitudesAsistencia()?.let { flow ->
             viewModelScope.launch {
                 flow.collect { lista ->
-                    if (lista.isNotEmpty()) {
-                        _uiState.update { it.copy(solicitudesAsistencia = lista) }
-                    }
+                    _uiState.update { it.copy(solicitudesAsistencia = lista) }
                 }
             }
+        }
+
+        // Al abrir la app se traen los dispositivos guardados en el microservicio.
+        if (usaRoom && repository.tieneServidor) {
+            sincronizarDispositivosConServidor(mostrarMensaje = false)
         }
         repository.observarHistorialDiagnosticos()?.let { flow ->
             viewModelScope.launch {
@@ -284,20 +311,135 @@ class TioTecViewModel(
             return
         }
 
-        agregarDispositivo(
-            nombre = state.nombreDispositivoInput,
-            tipo = state.tipoDispositivoSeleccionado,
-            sistemaOperativo = state.sistemaOperativoInput,
-            fotoUri = state.fotoDispositivoInput
-        )
+        val idEnEdicion = state.dispositivoEnEdicionId
+        if (idEnEdicion != null) {
+            actualizarDispositivo(
+                id = idEnEdicion,
+                nombre = state.nombreDispositivoInput,
+                tipo = state.tipoDispositivoSeleccionado,
+                sistemaOperativo = state.sistemaOperativoInput,
+                fotoUri = state.fotoDispositivoInput
+            )
+        } else {
+            agregarDispositivo(
+                nombre = state.nombreDispositivoInput,
+                tipo = state.tipoDispositivoSeleccionado,
+                sistemaOperativo = state.sistemaOperativoInput,
+                fotoUri = state.fotoDispositivoInput
+            )
+        }
+        limpiarFormularioDispositivo()
+    }
+
+    private fun limpiarFormularioDispositivo() {
         _uiState.update {
             it.copy(
                 nombreDispositivoInput = "",
                 sistemaOperativoInput = "",
+                tipoDispositivoSeleccionado = TipoDispositivo.SMARTPHONE,
                 fotoDispositivoInput = null,
+                errorNombreDispositivo = null,
+                errorSistemaOperativo = null,
+                dispositivoEnEdicionId = null
+            )
+        }
+    }
+
+    /** Carga los datos del dispositivo en el formulario para editarlo (la "U" del CRUD). */
+    fun iniciarEdicionDispositivo(id: String) {
+        val dispositivo = _uiState.value.dispositivos.find { it.id == id } ?: return
+        _uiState.update {
+            it.copy(
+                dispositivoEnEdicionId = dispositivo.id,
+                nombreDispositivoInput = dispositivo.nombre,
+                tipoDispositivoSeleccionado = dispositivo.tipo,
+                sistemaOperativoInput = dispositivo.sistemaOperativo,
+                fotoDispositivoInput = dispositivo.fotoUri,
                 errorNombreDispositivo = null,
                 errorSistemaOperativo = null
             )
+        }
+    }
+
+    fun cancelarEdicionDispositivo() = limpiarFormularioDispositivo()
+
+    private fun actualizarDispositivo(
+        id: String,
+        nombre: String,
+        tipo: TipoDispositivo,
+        sistemaOperativo: String,
+        fotoUri: String?
+    ) {
+        val actualizado = Dispositivo(
+            id = id,
+            nombre = nombre.trim(),
+            tipo = tipo,
+            sistemaOperativo = sistemaOperativo.trim(),
+            fotoUri = fotoUri
+        )
+        _uiState.update {
+            it.copy(
+                dispositivos = it.dispositivos.map { d -> if (d.id == id) actualizado else d },
+                mensajeExito = "Dispositivo '${actualizado.nombre}' actualizado"
+            )
+        }
+        viewModelScope.launch {
+            repository.guardarDispositivo(actualizado) // Room: REPLACE con el mismo id = UPDATE
+            if (repository.tieneServidor) {
+                informarResultadoServidor(
+                    repository.actualizarDispositivoRemoto(actualizado, _uiState.value.urlServidorSpring),
+                    "Cambios guardados en el servidor"
+                )
+            }
+        }
+    }
+
+    /** Muestra en la pantalla si el microservicio respondió bien o no. */
+    private fun informarResultadoServidor(resultado: Result<*>, mensajeOk: String) {
+        _uiState.update {
+            if (resultado.isSuccess) {
+                it.copy(servidorDispositivosOk = true, estadoServidorDispositivos = mensajeOk)
+            } else {
+                it.copy(
+                    servidorDispositivosOk = false,
+                    estadoServidorDispositivos = "Guardado solo en el teléfono: no se pudo conectar con el servidor " +
+                        "(${resultado.exceptionOrNull()?.localizedMessage ?: "error desconocido"})"
+                )
+            }
+        }
+    }
+
+    /** GET al microservicio y copia en Room. Se usa al abrir la app y con el botón "Sincronizar". */
+    fun sincronizarDispositivosConServidor(mostrarMensaje: Boolean = true) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(sincronizandoDispositivos = true) }
+            val resultado = repository.descargarDispositivosRemotos(_uiState.value.urlServidorSpring)
+            _uiState.update { it.copy(sincronizandoDispositivos = false) }
+            val cantidad = resultado.getOrNull()?.size ?: 0
+            informarResultadoServidor(resultado, "Conectado al servidor: $cantidad dispositivo(s) en Spring Boot")
+            if (mostrarMensaje && resultado.isSuccess) {
+                _uiState.update { it.copy(mensajeExito = "Dispositivos sincronizados con el servidor") }
+            }
+        }
+    }
+
+    /** Consulta la API externa endoflife.date. No modifica Room ni el microservicio. */
+    fun consultarSoporteAndroid() {
+        if (_uiState.value.cargandoSoporteAndroid) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(cargandoSoporteAndroid = true, errorSoporteAndroid = null) }
+            repository.consultarSoporteAndroid()
+                .onSuccess { versiones ->
+                    _uiState.update { it.copy(cargandoSoporteAndroid = false, versionesAndroid = versiones) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            cargandoSoporteAndroid = false,
+                            errorSoporteAndroid = "No se pudo consultar endoflife.date (${error.localizedMessage ?: "sin conexión"})"
+                        )
+                    }
+                }
         }
     }
 
@@ -316,7 +458,13 @@ class TioTecViewModel(
             )
         }
         viewModelScope.launch {
-            repository.guardarDispositivo(nuevo)
+            repository.guardarDispositivo(nuevo) // 1) Room (funciona sin internet)
+            if (repository.tieneServidor) {      // 2) microservicio Spring Boot
+                informarResultadoServidor(
+                    repository.crearDispositivoRemoto(nuevo, _uiState.value.urlServidorSpring),
+                    "Dispositivo guardado en el servidor"
+                )
+            }
         }
     }
 
@@ -327,8 +475,15 @@ class TioTecViewModel(
                 mensajeExito = "Dispositivo eliminado"
             )
         }
+        if (_uiState.value.dispositivoEnEdicionId == id) limpiarFormularioDispositivo()
         viewModelScope.launch {
             repository.eliminarDispositivo(id)
+            if (repository.tieneServidor) {
+                informarResultadoServidor(
+                    repository.eliminarDispositivoRemoto(id, _uiState.value.urlServidorSpring),
+                    "Dispositivo eliminado del servidor"
+                )
+            }
         }
     }
 
@@ -399,11 +554,15 @@ class TioTecViewModel(
             }
         }
 
+        // Evita duplicados: no se agrega una acción si ya hay una pendiente con el mismo título.
+        val titulosPendientes = state.checklist.filter { !it.completada }.map { it.titulo }.toSet()
+        val accionesAGuardar = nuevasAcciones.filter { it.titulo !in titulosPendientes }
+
         _uiState.update {
             it.copy(
                 ultimaEvaluacion = nuevaEval,
                 historial = listOf(nuevaEval) + it.historial,
-                checklist = (nuevasAcciones + it.checklist).distinctBy { acc -> acc.titulo },
+                checklist = accionesAGuardar + it.checklist,
                 respuestasActuales = emptyMap(),
                 preguntasSinResponder = emptySet(),
                 resultadoReciente = nuevaEval,
@@ -414,8 +573,8 @@ class TioTecViewModel(
         }
         viewModelScope.launch {
             repository.guardarEvaluacion(nuevaEval)
-            if (nuevasAcciones.isNotEmpty()) {
-                repository.guardarAcciones(nuevasAcciones)
+            if (accionesAGuardar.isNotEmpty()) {
+                repository.guardarAcciones(accionesAGuardar)
             }
         }
         return true
