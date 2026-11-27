@@ -202,7 +202,11 @@ fun MainNavigation(
                         onSistemaOperativoChange = viewModel::onSistemaOperativoChange,
                         onFotoDispositivoChange = viewModel::onFotoDispositivoChange,
                         onRegistrarDispositivo = { viewModel.agregarDispositivo() },
-                        onEliminarDispositivo = viewModel::eliminarDispositivo
+                        onEliminarDispositivo = viewModel::eliminarDispositivo,
+                        onEditarDispositivo = viewModel::iniciarEdicionDispositivo,
+                        onCancelarEdicion = viewModel::cancelarEdicionDispositivo,
+                        onSincronizarServidor = { viewModel.sincronizarDispositivosConServidor() },
+                        onConsultarSoporteAndroid = viewModel::consultarSoporteAndroid
                     )
                 }
                 SeccionNavegacion.ASISTENCIA -> {
