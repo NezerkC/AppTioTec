@@ -22,6 +22,9 @@ interface TioTecDao {
     @Query("SELECT * FROM dispositivos ORDER BY id ASC")
     fun obtenerTodosLosDispositivos(): Flow<List<DispositivoEntity>>
 
+    @Query("SELECT * FROM dispositivos WHERE id = :id LIMIT 1")
+    suspend fun obtenerDispositivoPorId(id: String): DispositivoEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarDispositivo(dispositivo: DispositivoEntity): Long
 
