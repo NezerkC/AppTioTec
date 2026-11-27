@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.ksp)
+  alias(libs.plugins.kover)
 }
 
 android {
@@ -124,4 +125,44 @@ dependencies {
   implementation(libs.okhttp.core)
   implementation(libs.okhttp.logging)
   implementation(libs.gson)
+}
+
+/*
+ * Cobertura de tests unitarios con Kover.
+ * Comando: .\gradlew koverHtmlReportDebug  -> app/build/reports/kover/htmlDebug/index.html
+ * Se mide la LÓGICA (ViewModel, Repository, modelos, validaciones, mapeos de Retrofit).
+ * Se excluyen pantallas Compose, helpers de hardware nativo y código generado,
+ * porque se prueban en el emulador (tests instrumentados), no con JUnit.
+ */
+kover {
+    reports {
+        filters {
+            excludes {
+                packages(
+                    "cl.duoc.tiotec.ui",
+                    "cl.duoc.tiotec.ui.*",
+                    "cl.duoc.tiotec.theme",
+                    "cl.duoc.tiotec.nativo"
+                )
+                classes(
+                    "cl.duoc.tiotec.MainActivity*",
+                    "cl.duoc.tiotec.NavigationKt*",
+                    "cl.duoc.tiotec.ComposableSingletons*",
+                    "cl.duoc.tiotec.data.local.TioTecDatabase*",
+                    "cl.duoc.tiotec.data.local.*_Impl*",
+                    "cl.duoc.tiotec.repository.PreferenciasDataStore*",
+                    "cl.duoc.tiotec.data.remote.RetrofitClient*",
+                    "cl.duoc.tiotec.data.remote.EndOfLifeClient*"
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+        variant("debug") {
+            verify {
+                rule("Cobertura mínima de la lógica") {
+                    minBound(80)
+                }
+            }
+        }
+    }
 }

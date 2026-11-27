@@ -7,9 +7,12 @@ import cl.duoc.tiotec.data.local.DispositivoEntity
 import cl.duoc.tiotec.data.local.EvaluacionEntity
 import cl.duoc.tiotec.data.local.SolicitudAsistenciaEntity
 import cl.duoc.tiotec.data.local.TioTecDao
+import cl.duoc.tiotec.data.remote.EndOfLifeApiService
+import cl.duoc.tiotec.data.remote.EndOfLifeClient
 import cl.duoc.tiotec.data.remote.RetrofitClient
 import cl.duoc.tiotec.data.remote.TioTecApiService
 import cl.duoc.tiotec.data.remote.toDomain
+import cl.duoc.tiotec.data.remote.toDto
 import cl.duoc.tiotec.data.remote.toRequestDto
 import cl.duoc.tiotec.model.AccionChecklist
 import cl.duoc.tiotec.model.CategoriaSeguridad
@@ -25,14 +28,24 @@ import cl.duoc.tiotec.model.PrioridadAccion
 import cl.duoc.tiotec.model.SolicitudAsistencia
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.model.Usuario
+import cl.duoc.tiotec.model.SoporteAndroid
+import cl.duoc.tiotec.model.VersionAndroid
+import retrofit2.HttpException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class TioTecRepository(
     private val dao: TioTecDao? = null,
     private val diagnosticoDao: DiagnosticoHardwareDao? = null,
-    private val apiService: TioTecApiService? = null
+    private val apiService: TioTecApiService? = null,
+    private val endOfLifeService: EndOfLifeApiService? = null
 ) {
+
+    /** true cuando la app tiene Room (en tests sin Room trabaja solo en memoria). */
+    val tieneRoom: Boolean get() = dao != null
+
+    /** true cuando se configuró el cliente del backend Spring Boot. */
+    val tieneServidor: Boolean get() = apiService != null
 
     // -------------------------------------------------------------------------
     // Diagnósticos de Hardware (Room + Retrofit Spring Boot)
@@ -109,6 +122,64 @@ class TioTecRepository(
     suspend fun eliminarDispositivo(id: String) {
         dao?.eliminarDispositivoPorId(id)
     }
+
+    // -------------------------------------------------------------------------
+    // Dispositivos en el microservicio Spring Boot (CRUD remoto con Retrofit)
+    // Cada función devuelve Result: success si el servidor respondió bien,
+    // failure si no hubo conexión o respondió con error. Nunca lanza excepción.
+    // -------------------------------------------------------------------------
+
+    suspend fun crearDispositivoRemoto(dispositivo: Dispositivo, baseUrl: String? = null): Result<Unit> =
+        runCatching {
+            resolverServicio(baseUrl).crearDispositivo(dispositivo.toDto())
+            Unit
+        }
+
+    /** PUT. Si el servidor no lo tiene (404, por ejemplo se creó sin conexión) lo crea con POST. */
+    suspend fun actualizarDispositivoRemoto(dispositivo: Dispositivo, baseUrl: String? = null): Result<Unit> =
+        runCatching {
+            val servicio = resolverServicio(baseUrl)
+            try {
+                servicio.actualizarDispositivo(dispositivo.id, dispositivo.toDto())
+            } catch (e: HttpException) {
+                if (e.code() == 404) servicio.crearDispositivo(dispositivo.toDto()) else throw e
+            }
+            Unit
+        }
+
+    /** DELETE. Un 404 cuenta como éxito: el dispositivo ya no está en el servidor. */
+    suspend fun eliminarDispositivoRemoto(id: String, baseUrl: String? = null): Result<Unit> =
+        runCatching {
+            val respuesta = resolverServicio(baseUrl).eliminarDispositivo(id)
+            if (!respuesta.isSuccessful && respuesta.code() != 404) {
+                throw IllegalStateException("El servidor respondió ${respuesta.code()}")
+            }
+        }
+
+    /**
+     * GET de todos los dispositivos del servidor y copia en Room.
+     * Conserva la foto local (fotoUri) si el dispositivo ya existía en el teléfono.
+     */
+    suspend fun descargarDispositivosRemotos(baseUrl: String? = null): Result<List<Dispositivo>> =
+        runCatching {
+            val remotos = resolverServicio(baseUrl).obtenerDispositivos()
+            remotos.map { dto ->
+                val fotoLocal = dto.id?.let { dao?.obtenerDispositivoPorId(it)?.fotoUri }
+                val dispositivo = dto.toDomain(fotoLocal)
+                dao?.insertarDispositivo(DispositivoEntity.fromDomain(dispositivo))
+                dispositivo
+            }
+        }
+
+    // -------------------------------------------------------------------------
+    // API externa endoflife.date (solo lectura, no se guarda en ningún lado)
+    // -------------------------------------------------------------------------
+
+    suspend fun consultarSoporteAndroid(): Result<List<VersionAndroid>> =
+        runCatching {
+            val servicio = endOfLifeService ?: EndOfLifeClient.crearServicio()
+            servicio.obtenerCicloDeVidaAndroid().result.releases.map { SoporteAndroid.desdeDto(it) }
+        }
 
     // -------------------------------------------------------------------------
     // Checklist de Acciones (RF-05 / RN-02) con Room

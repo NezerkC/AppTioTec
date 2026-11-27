@@ -15,7 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -26,15 +29,19 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.duoc.tiotec.model.Dispositivo
+import cl.duoc.tiotec.model.EstadoSoporte
+import cl.duoc.tiotec.model.SoporteAndroid
 import cl.duoc.tiotec.model.NivelExperiencia
 import cl.duoc.tiotec.model.TipoDispositivo
 import cl.duoc.tiotec.nativo.BotonTomarFoto
@@ -64,8 +71,17 @@ fun PerfilScreen(
     onFotoDispositivoChange: (String?) -> Unit,
     onRegistrarDispositivo: () -> Unit,
     modifier: Modifier = Modifier,
-    onEliminarDispositivo: (String) -> Unit = {}
+    onEliminarDispositivo: (String) -> Unit = {},
+    onEditarDispositivo: (String) -> Unit = {},
+    onCancelarEdicion: () -> Unit = {},
+    onSincronizarServidor: () -> Unit = {},
+    onConsultarSoporteAndroid: () -> Unit = {}
 ) {
+    // La API externa se consulta una vez al abrir la pantalla (si aún no hay datos).
+    LaunchedEffect(Unit) {
+        if (state.versionesAndroid.isEmpty()) onConsultarSoporteAndroid()
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -86,8 +102,15 @@ fun PerfilScreen(
                 onTipoDispositivoChange = onTipoDispositivoChange,
                 onSistemaOperativoChange = onSistemaOperativoChange,
                 onFotoDispositivoChange = onFotoDispositivoChange,
-                onRegistrarDispositivo = onRegistrarDispositivo
+                onRegistrarDispositivo = onRegistrarDispositivo,
+                onCancelarEdicion = onCancelarEdicion
             )
+        }
+        item {
+            TarjetaServidor(state = state, onSincronizar = onSincronizarServidor)
+        }
+        item {
+            TarjetaSoporteAndroid(state = state, onReintentar = onConsultarSoporteAndroid)
         }
         item {
             Text(
@@ -109,6 +132,10 @@ fun PerfilScreen(
         items(state.dispositivos, key = { it.id }) { dispositivo ->
             ItemDispositivo(
                 dispositivo = dispositivo,
+                soporte = if (state.versionesAndroid.isEmpty()) null
+                else SoporteAndroid.evaluar(dispositivo.sistemaOperativo, state.versionesAndroid),
+                enEdicion = state.dispositivoEnEdicionId == dispositivo.id,
+                onEditar = { onEditarDispositivo(dispositivo.id) },
                 onEliminar = { onEliminarDispositivo(dispositivo.id) }
             )
         }
@@ -178,8 +205,10 @@ private fun TarjetaRegistroDispositivo(
     onTipoDispositivoChange: (TipoDispositivo) -> Unit,
     onSistemaOperativoChange: (String) -> Unit,
     onFotoDispositivoChange: (String?) -> Unit,
-    onRegistrarDispositivo: () -> Unit
+    onRegistrarDispositivo: () -> Unit,
+    onCancelarEdicion: () -> Unit = {}
 ) {
+    val editando = state.dispositivoEnEdicionId != null
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -190,7 +219,7 @@ private fun TarjetaRegistroDispositivo(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Registrar dispositivo de prueba",
+                text = if (editando) "Editar dispositivo" else "Registrar dispositivo de prueba",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -228,9 +257,103 @@ private fun TarjetaRegistroDispositivo(
                 onClick = onRegistrarDispositivo,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Icon(
+                    if (editando) Icons.Default.Check else Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                )
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Text("Registrar dispositivo")
+                Text(if (editando) "Guardar cambios" else "Registrar dispositivo")
+            }
+            if (editando) {
+                OutlinedButton(onClick = onCancelarEdicion, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("Cancelar edición")
+                }
+            }
+        }
+    }
+}
+
+/** Estado de la conexión con el microservicio Spring Boot. */
+@Composable
+private fun TarjetaServidor(state: TioTecUiState, onSincronizar: () -> Unit) {
+    val color = when (state.servidorDispositivosOk) {
+        true -> MaterialTheme.colorScheme.primary
+        false -> MaterialTheme.colorScheme.error
+        null -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    OutlinedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Microservicio Spring Boot",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = state.urlServidorSpring + "api/v1/dispositivos",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = when {
+                    state.sincronizandoDispositivos -> "Sincronizando..."
+                    state.estadoServidorDispositivos != null -> state.estadoServidorDispositivos
+                    else -> "Aún no se conecta con el servidor"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = color
+            )
+            OutlinedButton(
+                onClick = onSincronizar,
+                enabled = !state.sincronizandoDispositivos,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text("Sincronizar con el servidor")
+            }
+        }
+    }
+}
+
+/** Resumen de la API externa endoflife.date. */
+@Composable
+private fun TarjetaSoporteAndroid(state: TioTecUiState, onReintentar: () -> Unit) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Soporte de Android (API externa endoflife.date)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            when {
+                state.cargandoSoporteAndroid -> Text("Consultando...", style = MaterialTheme.typography.bodySmall)
+                state.errorSoporteAndroid != null -> {
+                    Text(
+                        text = state.errorSoporteAndroid,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    OutlinedButton(onClick = onReintentar, modifier = Modifier.fillMaxWidth()) {
+                        Text("Reintentar")
+                    }
+                }
+                state.versionesAndroid.isNotEmpty() -> {
+                    val conSoporte = state.versionesAndroid.filter { it.conSoporte }
+                    Text(
+                        text = "Versiones con soporte de seguridad: " +
+                            conSoporte.joinToString { "Android ${it.version}" },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Escribe el sistema como \"Android 14\" para ver el estado de cada dispositivo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                else -> Text("Sin datos todavía", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -239,6 +362,9 @@ private fun TarjetaRegistroDispositivo(
 @Composable
 private fun ItemDispositivo(
     dispositivo: Dispositivo,
+    soporte: EstadoSoporte? = null,
+    enEdicion: Boolean = false,
+    onEditar: () -> Unit = {},
     onEliminar: () -> Unit = {}
 ) {
     OutlinedCard(
@@ -272,6 +398,32 @@ private fun ItemDispositivo(
                     text = "${dispositivo.tipo.etiqueta} · ${dispositivo.sistemaOperativo}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (soporte != null) {
+                    Text(
+                        text = soporte.texto,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = when (soporte) {
+                            is EstadoSoporte.ConSoporte -> MaterialTheme.colorScheme.primary
+                            is EstadoSoporte.SinSoporte -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                if (enEdicion) {
+                    Text(
+                        text = "Editando...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+            IconButton(onClick = onEditar) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Editar dispositivo",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
             IconButton(onClick = onEliminar) {
