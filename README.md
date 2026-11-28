@@ -2,12 +2,12 @@
 
 [![Android CI](https://github.com/NezerkC/AppTioTec/actions/workflows/android-ci.yml/badge.svg)](https://github.com/NezerkC/AppTioTec/actions/workflows/android-ci.yml)
 [![Auto-Tracker](https://github.com/NezerkC/AppTioTec/actions/workflows/auto-progress-tracker.yml/badge.svg)](https://github.com/NezerkC/AppTioTec/actions/workflows/auto-progress-tracker.yml)
-![Progreso](https://img.shields.io/badge/Progreso-100%25%20(10%2F10%20Tareas)-0E8A16?style=flat&logo=github)
+![Entrega](https://img.shields.io/badge/Entrega-EP4%20Completada%20%7C%20Kover%2088%25-0E8A16?style=flat&logo=github)
 
 **Asignatura:** DSY1105 - Desarrollo de Aplicaciones Móviles (Sección 005V)  
 **Institución:** Duoc UC · Escuela de Informática y Telecomunicaciones (Sede Alameda)  
 **Organización del Caso:** MCmovil SpA  
-**Tablero de Seguimiento:** [GitHub Projects (AppTioTec · Unidad 2)](https://github.com/users/NezerkC/projects/5)  
+**Tablero de Seguimiento:** [GitHub Projects (AppTioTec · Unidades 2 y 3)](https://github.com/users/NezerkC/projects/5)  
 
 ---
 
@@ -15,8 +15,8 @@
 
 | Nombre Completo | Usuario GitHub | Rol / Aportes Principales |
 | :--- | :--- | :--- |
-| **Víctor Manuel Martínez Muñoz** | [@NezerkC](https://github.com/NezerkC) (`vmmm25`) | Arquitectura MVVM, Modelos, ViewModel, Preferences DataStore (#8), Room Database SQLite (#10), Asistencia Simulada (#12), CI/CD y automatización. |
-| **Danilo Mauricio Sepúlveda Araneda** | [@Daakhen](https://github.com/Daakhen) | UI Jetpack Compose, Perfil y Validación (#6), Cuestionario 4 Pilares (#7), Recursos Nativos Cámara/Notificaciones (#9), Historial (#11). |
+| **Víctor Manuel Martínez Muñoz** | [@NezerkC](https://github.com/NezerkC) (`vmmm25`) | Arquitectura MVVM, Modelos, ViewModel, Preferences DataStore (#8), Room Database SQLite (#10), Asistencia Simulada (#12), CI/CD y automatización. Cuidado Tech, persistencia CRUD Room↔Retrofit, endpoints/tests de diagnósticos en backend y CI/CD dual (Kover + Spring Boot JDK 21). |
+| **Danilo Mauricio Sepúlveda Araneda** | [@Daakhen](https://github.com/Daakhen) | UI Jetpack Compose, Perfil y Validación (#6), Cuestionario 4 Pilares (#7), Recursos Nativos Cámara/Notificaciones (#9), Historial (#11). Microservicio Spring Boot (H2 + CRUD Dispositivos), API externa endoflife.date, cobertura Kover, APK release firmado y guía EP4/EP5. |
 
 ---
 
@@ -164,6 +164,7 @@ cd backend; .\mvnw.cmd test          # tests del microservicio
 ```
 - Keystore: `app/release-tiotec.jks` · alias `tiotec_release`.
 - Configuración: bloque `signingConfigs` de `app/build.gradle.kts`.
+- Nota de credenciales (evaluación): `app/build.gradle.kts` incluye credenciales de respaldo para permitir `./gradlew assembleRelease` directo sin configuración previa; en entornos reales se sobreescriben mediante `keystore.properties` (ver `keystore.properties.example`, excluido de Git).
 - Certificado: `CN=AppTioTec, OU=DuocUC, O=MCmovil, L=Santiago, ST=RM, C=CL`.
 - APK entregado: [`entrega/AppTioTec-v1.0-release.apk`](./entrega/).
 - Captura de la verificación de firma: [docs/capturas/apk-firmado.png](./docs/capturas/apk-firmado.png).
