@@ -41,7 +41,7 @@
 * **Microservicio Spring Boot propio** (`backend/`): Spring Boot 4, Spring Data JPA y **H2 persistente en archivo**. CRUD de dispositivos y registro de diagnósticos de hardware, con validación (`@Valid`) y errores 400/404 en JSON.
 * **Integración app ↔ microservicio (CRUD completo):** crear, listar, **editar** y eliminar dispositivos desde *Perfil*. Cada operación se guarda en **Room** y en el **microservicio** mediante **Retrofit**. Al abrir la app se descargan los dispositivos del servidor. Si el servidor no responde, el dato queda en el teléfono y la pantalla lo informa.
 * **API externa con Retrofit (endoflife.date):** muestra qué versiones de Android siguen recibiendo actualizaciones de seguridad e indica en cada dispositivo si su versión tiene soporte. Usa un cliente Retrofit separado y es de solo lectura: no escribe en Room ni en el microservicio.
-* **Pruebas unitarias:** 71 tests en la app (JUnit 4 + corrutinas + fakes) con **88% de cobertura de líneas de la lógica** medida con **Kover**, y 13 tests en el backend (JUnit 5, Mockito y MockMvc).
+* **Pruebas unitarias:** 71 tests en la app (JUnit 4 + corrutinas + fakes) con **88% de cobertura de líneas de la lógica** medida con **Kover**, y 23 tests en el backend (JUnit 5, Mockito y MockMvc).
 * **APK release firmado** con `app/release-tiotec.jks` (alias `tiotec_release`). Copia en [`entrega/`](./entrega/).
 
 ---
@@ -104,7 +104,9 @@ URL base: `http://localhost:8080` desde el PC · `http://10.0.2.2:8080` desde el
 | `PUT` | `/api/v1/dispositivos/{id}` | Actualiza un dispositivo | 200 · 400 · 404 |
 | `DELETE` | `/api/v1/dispositivos/{id}` | Elimina un dispositivo | 204 · 404 |
 | `GET` | `/api/v1/diagnosticos` | Lista los diagnósticos de hardware | 200 |
+| `GET` | `/api/v1/diagnosticos/{id}` | Obtiene un diagnóstico de hardware | 200 · 404 |
 | `POST` | `/api/v1/diagnosticos` | Registra un diagnóstico de hardware | 201 · 400 |
+| `DELETE` | `/api/v1/diagnosticos/{id}` | Elimina un diagnóstico de hardware | 204 · 404 |
 
 Cuerpo de un dispositivo:
 
@@ -164,7 +166,7 @@ cd backend; .\mvnw.cmd test          # tests del microservicio
 - Configuración: bloque `signingConfigs` de `app/build.gradle.kts`.
 - Certificado: `CN=AppTioTec, OU=DuocUC, O=MCmovil, L=Santiago, ST=RM, C=CL`.
 - APK entregado: [`entrega/AppTioTec-v1.0-release.apk`](./entrega/).
-- Captura de la verificación de firma: [`docs/capturas/apk-firmado.png`](./docs/capturas/).
+- Captura de la verificación de firma: [docs/capturas/apk-firmado.png](./docs/capturas/apk-firmado.png).
 
 ### Pasos originales
 1. **Clonar el repositorio:**

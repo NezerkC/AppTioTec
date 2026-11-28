@@ -20,9 +20,9 @@ Esta guía explica **qué se implementó para la EP4**, **cómo funciona por den
 | **3.1.2** Microservicio Spring Boot con base de datos y endpoints | Carpeta `backend/`: Spring Boot 4 + JPA + **H2 en archivo**. CRUD de dispositivos y GET/POST de diagnósticos. | `backend/src/main/java/cl/duoc/tiotec/backend/` |
 | **3.1.3** Integración app–microservicio con CRUD completo | Crear, listar, editar y eliminar dispositivos desde la app van a **Room** y al **microservicio** con Retrofit. | `TioTecApiService.kt`, `TioTecRepository.kt`, `TioTecViewModel.kt` |
 | **3.1.4** API externa con Retrofit, visible en la UI, sin interferir | **endoflife.date**: muestra qué versiones de Android tienen soporte de seguridad y marca cada dispositivo. Cliente Retrofit aparte, solo lectura. | `EndOfLifeApi.kt`, `SoporteAndroid.kt`, tarjeta en Perfil |
-| **3.2.1** Tests unitarios ≥ 80% de la lógica | **71 tests** en la app (**88% de líneas** medido con Kover) y **13 tests** en el backend. | `app/src/test/`, `backend/src/test/` |
+| **3.2.1** Tests unitarios ≥ 80% de la lógica | **71 tests** en la app (**88% de líneas** medido con Kover) y **23 tests** en el backend. | `app/src/test/`, `backend/src/test/` |
 | **3.3.1** APK release firmado, `.jks` y configuración en el repo | `app/release-tiotec.jks` + `signingConfigs` en `app/build.gradle.kts`. APK en `entrega/`. | Sección 7 |
-| **3.3.2** GitHub con commits por integrante | Commits de cada uno en la rama `feature/backend-dispositivos`. | `git log --author=Daakhen` |
+| **3.3.2** GitHub con commits por integrante | Commits de cada uno en la rama `feature/ep4-backend`. | `git log --author=Daakhen` |
 
 También se corrigió un **error de Room**: los datos de ejemplo se mostraban al abrir la app y desaparecían al guardar el primer registro real. Ahora la pantalla muestra exactamente lo que hay en la base. Además, hacer dos evaluaciones iguales ya no duplica acciones en el checklist.
 
@@ -219,7 +219,9 @@ Recorrido desde el botón hasta la base y de vuelta. **Si entiendes esto, entien
 | PUT | `/api/v1/dispositivos/{id}` | `{nombre, tipo, sistemaOperativo}` | 200, 400 o 404 |
 | DELETE | `/api/v1/dispositivos/{id}` | — | 204 o 404 |
 | GET | `/api/v1/diagnosticos` | — | 200 + lista |
+| GET | `/api/v1/diagnosticos/{id}` | — | 200 o 404 |
 | POST | `/api/v1/diagnosticos` | diagnóstico de hardware | 201 o 400 |
+| DELETE | `/api/v1/diagnosticos/{id}` | — | 204 o 404 |
 
 Ejemplo de JSON de un dispositivo:
 
@@ -316,7 +318,7 @@ Otros tests que vale la pena conocer:
 .\gradlew koverVerifyDebug             # falla si la cobertura baja de 80%
 
 # Backend (desde backend\)
-.\mvnw.cmd test                        # 13 tests
+.\mvnw.cmd test                        # 23 tests
 ```
 
 En Android Studio: abre el archivo del test y presiona la **flecha verde** junto al nombre del test.
